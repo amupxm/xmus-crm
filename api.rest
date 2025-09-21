@@ -1,0 +1,34 @@
+### Login
+POST http://localhost:9090/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "amupxm@gmail.com",
+  "password": "1202212022"
+}
+
+###
+
+### Refresh Token
+POST http://localhost:9090/api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "your_refresh_token_here"
+}
+
+###
+
+### Logout
+POST http://localhost:9090/api/v1/auth/logout
+Content-Type: application/json
+
+{
+  "refresh_token": "your_refresh_token_here"
+}
+
+###
+
+### Get User Profile (Protected)
+GET http://localhost:9090/api/v1/protected/profile
+Authorization: Bearer your_access_token_here
