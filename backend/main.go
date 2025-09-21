@@ -63,7 +63,7 @@ func main() {
 
 	// usersJ, _ := json.Marshal(users)
 	// log.Info().Msg(string(usersJ))
-	if err := router.Run(":9090"); err != nil {
+	if err := router.Run(":8080"); err != nil {
 		log.Fatal(err)
 	}
 }
