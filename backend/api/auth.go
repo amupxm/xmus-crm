@@ -26,6 +26,14 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required,min=6"`
 }
 
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
 type LoginResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
@@ -44,6 +52,21 @@ type UserResponse struct {
 	LastName  string     `json:"last_name"`
 	IsActive  bool       `json:"is_active"`
 	LastLogin *time.Time `json:"last_login,omitempty"`
+}
+
+type RefreshTokenResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Data    struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int64  `json:"expires_in"`
+	} `json:"data,omitempty"`
+}
+
+type LogoutResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }
 
 type ErrorResponse struct {
@@ -65,6 +88,8 @@ func (a *AuthAPI) RegisterRoutes(router *gin.RouterGroup) {
 	auth := router.Group("/auth")
 	{
 		auth.POST("/login", a.Login)
+		auth.POST("/refresh", a.RefreshToken)
+		auth.POST("/logout", a.Logout)
 	}
 }
 
@@ -101,7 +126,7 @@ func (a *AuthAPI) Login(c *gin.Context) {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusUnauthorized, ErrorResponse{
 				Success: false,
-				Message: "Invalid credentials",
+				Message: "Invalid credentials - user not found",
 			})
 			return
 		}
@@ -180,6 +205,182 @@ func (a *AuthAPI) Login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (a *AuthAPI) RefreshToken(c *gin.Context) {
+	var req RefreshTokenRequest
+
+	// Bind JSON request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid request format",
+			Errors:  []string{err.Error()},
+		})
+		return
+	}
+
+	// Validate request
+	if err := a.validate.Struct(req); err != nil {
+		var validationErrors []string
+		for _, err := range err.(validator.ValidationErrors) {
+			validationErrors = append(validationErrors, getValidationErrorMessage(err))
+		}
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Validation failed",
+			Errors:  validationErrors,
+		})
+		return
+	}
+
+	// Parse and validate refresh token
+	payload, err := service.ParseRefreshJWTToken(req.RefreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "Invalid refresh token",
+		})
+		return
+	}
+
+	// Find user by ID
+	user, err := a.userModel.GetUserByID(payload.UserID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusUnauthorized, ErrorResponse{
+				Success: false,
+				Message: "User not found",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Database error",
+		})
+		return
+	}
+
+	// Check if user is active
+	if !user.IsActiveUser {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "Account is deactivated",
+		})
+		return
+	}
+
+	// Verify refresh token matches stored token
+	if user.RefreshToken != req.RefreshToken {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "Invalid refresh token",
+		})
+		return
+	}
+
+	// Check if refresh token is expired
+	if user.RefreshTokenExpiry != nil && user.RefreshTokenExpiry.Before(time.Now()) {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "Refresh token expired",
+		})
+		return
+	}
+
+	// Generate new JWT tokens
+	now := time.Now()
+	tokenPair, err := service.GenerateJWTTokenPair(service.JWTPayload{UserID: user.ID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to generate tokens",
+		})
+		return
+	}
+
+	// Update refresh token in database
+	user.RefreshToken = tokenPair.RefreshJWTToken
+	refreshExpiry := now.Add(time.Hour * 24 * 7) // 7 days
+	user.RefreshTokenExpiry = &refreshExpiry
+
+	if err := a.db.Save(user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to update refresh token",
+		})
+		return
+	}
+
+	// Prepare response
+	response := RefreshTokenResponse{
+		Success: true,
+		Message: "Token refreshed successfully",
+		Data: struct {
+			AccessToken  string `json:"access_token"`
+			RefreshToken string `json:"refresh_token"`
+			ExpiresIn    int64  `json:"expires_in"`
+		}{
+			AccessToken:  tokenPair.JWTToken,
+			RefreshToken: tokenPair.RefreshJWTToken,
+			ExpiresIn:    int64((time.Minute * 15).Seconds()), // 15 minutes
+		},
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (a *AuthAPI) Logout(c *gin.Context) {
+	var req LogoutRequest
+
+	// Bind JSON request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid request format",
+			Errors:  []string{err.Error()},
+		})
+		return
+	}
+
+	// Validate request
+	if err := a.validate.Struct(req); err != nil {
+		var validationErrors []string
+		for _, err := range err.(validator.ValidationErrors) {
+			validationErrors = append(validationErrors, getValidationErrorMessage(err))
+		}
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Validation failed",
+			Errors:  validationErrors,
+		})
+		return
+	}
+
+	// Parse refresh token to get user ID
+	payload, err := service.ParseRefreshJWTToken(req.RefreshToken)
+	if err != nil {
+		// Even if token is invalid, we consider logout successful
+		c.JSON(http.StatusOK, LogoutResponse{
+			Success: true,
+			Message: "Logged out successfully",
+		})
+		return
+	}
+
+	// Find user and clear refresh token
+	user, err := a.userModel.GetUserByID(payload.UserID)
+	if err == nil {
+		// Clear refresh token from database
+		user.RefreshToken = ""
+		user.RefreshTokenExpiry = nil
+		a.db.Save(user)
+	}
+
+	c.JSON(http.StatusOK, LogoutResponse{
+		Success: true,
+		Message: "Logged out successfully",
+	})
 }
 
 // Helper function to get user-friendly validation error messages

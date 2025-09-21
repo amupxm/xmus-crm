@@ -2,8 +2,10 @@ package main
 
 import (
 	"github.com/amupxm/xmus-crm/backend/api"
+	"github.com/amupxm/xmus-crm/backend/middleware"
 	"github.com/amupxm/xmus-crm/backend/model"
 	"github.com/amupxm/xmus-crm/backend/service"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -28,12 +30,26 @@ func main() {
 	authAPI := api.NewAuthAPI(db)
 	authAPI.RegisterRoutes(apiGroup)
 
-	// Create a test user if none exists
-	// userModel := model.NewUserModel(db)
-	// users, err := userModel.GetAllUsers()
-	// if err != nil {
-	// 	log.Error().Err(err).Msg("failed to fetch users")
-	// }
+	// Protected routes example
+	protected := apiGroup.Group("/protected")
+	protected.Use(middleware.AuthMiddleware())
+	{
+		protected.GET("/profile", func(c *service.GinContext) {
+			userID, exists := c.Get("user_id")
+			if !exists {
+				c.JSON(500, gin.H{"error": "User ID not found in context"})
+				return
+			}
+			c.JSON(200, gin.H{
+				"success": true,
+				"message": "Access granted to protected route",
+				"user_id": userID,
+			})
+		})
+	}
+
+	userModel := model.NewUserModel(db)
+	userModel.CreateTestUser()
 
 	// if len(users) == 0 {
 	// 	log.Info().Msg("No users found, creating test user...")
