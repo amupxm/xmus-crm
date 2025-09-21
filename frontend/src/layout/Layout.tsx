@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { LayoutType } from '../types';
 import { Footer } from './Footer';
 import { Header } from './Header';
@@ -13,6 +13,16 @@ export const Layout: React.FC<LayoutProps> = ({
   children, 
   layoutType = 'default' 
 }) => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const handleMenuToggle = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const handleSidebarClose = () => {
+    setIsSidebarOpen(false);
+  };
+
   const renderLayout = () => {
     switch (layoutType) {
       case 'minimal':
@@ -27,9 +37,9 @@ export const Layout: React.FC<LayoutProps> = ({
       case 'dashboard':
         return (
           <div className="min-h-screen bg-gradient-cyber flex">
-            <Sidebar />
-            <div className="flex-1 flex flex-col">
-              <Header />
+            <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} />
+            <div className="flex-1 flex flex-col md:ml-64">
+              <Header onMenuToggle={handleMenuToggle} />
               <main className="flex-1 p-6">
                 {children}
               </main>
@@ -41,7 +51,7 @@ export const Layout: React.FC<LayoutProps> = ({
       default:
         return (
           <div className="min-h-screen bg-gradient-cyber">
-            <Header />
+            <Header onMenuToggle={handleMenuToggle} />
             <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
               {children}
             </main>
