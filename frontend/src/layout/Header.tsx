@@ -1,10 +1,14 @@
+import { Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenu, NavbarMenuItem, NavbarMenuToggle, User } from '@heroui/react';
+import { Home, Info, LogOut } from 'lucide-react';
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { useAuthApi } from '../hooks/useAuthApi';
 
 export const Header: React.FC = () => {
   const location = useLocation();
   const { user, logoutUser, isAuthenticated } = useAuthApi();
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -18,90 +22,107 @@ export const Header: React.FC = () => {
     }
   };
 
+  const menuItems = [
+    { name: "Home", href: "/", icon: Home },
+    { name: "About", href: "/about", icon: Info },
+  ];
+
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex-shrink-0">
-            <Link to="/" className="flex items-center">
-              <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">X</span>
-              </div>
-              <span className="ml-2 text-xl font-bold text-gray-900">
-                XMUS CRM
-              </span>
-            </Link>
-          </div>
-
-          {/* Navigation */}
-          {isAuthenticated && (
-            <nav className="hidden md:flex space-x-8">
-              <Link
-                to="/"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive('/')
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                Home
-              </Link>
-              <Link
-                to="/about"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive('/about')
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                About
-              </Link>
-            </nav>
-          )}
-
-          {/* User Menu */}
-          {isAuthenticated && user && (
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">
-                Welcome, {user.name}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
-              >
-                Logout
-              </button>
+    <Navbar 
+      onMenuOpenChange={setIsMenuOpen}
+      className="glass-dark border-b border-gray-700"
+      maxWidth="full"
+    >
+      <NavbarContent>
+        <NavbarMenuToggle
+          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          className="sm:hidden text-white"
+        />
+        <NavbarBrand>
+          <Link to="/" className="flex items-center gap-2">
+            <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center neon-glow">
+              <span className="text-white font-bold text-lg">X</span>
             </div>
-          )}
+            <span className="text-xl font-bold gradient-text">
+              XMUS CRM
+            </span>
+          </Link>
+        </NavbarBrand>
+      </NavbarContent>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button
-              type="button"
-              className="bg-white p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-              aria-expanded="false"
-            >
-              <span className="sr-only">Open main menu</span>
-              <svg
-                className="h-6 w-6"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
+      {isAuthenticated && (
+        <NavbarContent className="hidden sm:flex gap-4" justify="center">
+          {menuItems.map((item) => (
+            <NavbarItem key={item.name} isActive={isActive(item.href)}>
+              <Link
+                to={item.href}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive(item.href)
+                    ? 'bg-blue-500/20 text-blue-400'
+                    : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
+                }`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
+                <item.icon className="w-4 h-4" />
+                {item.name}
+              </Link>
+            </NavbarItem>
+          ))}
+        </NavbarContent>
+      )}
+
+      <NavbarContent justify="end">
+        <ThemeToggle />
+        {isAuthenticated && user ? (
+          <Dropdown placement="bottom-end">
+            <DropdownTrigger>
+              <User
+                as="button"
+                avatarProps={{
+                  isBordered: true,
+                  src: `https://ui-avatars.com/api/?name=${user.name}&background=667eea&color=fff`,
+                  className: "transition-transform",
+                }}
+                className="transition-transform"
+                description={user.email}
+                name={user.name}
+              />
+            </DropdownTrigger>
+            <DropdownMenu aria-label="User menu actions" variant="flat">
+              <DropdownItem key="profile" className="h-14 gap-2">
+                <p className="font-semibold">Signed in as</p>
+                <p className="font-semibold">{user.email}</p>
+              </DropdownItem>
+              <DropdownItem 
+                key="logout" 
+                color="danger"
+                className="text-danger"
+                onPress={handleLogout}
+                startContent={<LogOut className="w-4 h-4" />}
+              >
+                Log Out
+              </DropdownItem>
+            </DropdownMenu>
+          </Dropdown>
+        ) : null}
+      </NavbarContent>
+
+      <NavbarMenu className="glass-dark">
+        {menuItems.map((item, index) => (
+          <NavbarMenuItem key={`${item.name}-${index}`}>
+            <Link
+              to={item.href}
+              className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                isActive(item.href)
+                  ? 'bg-blue-500/20 text-blue-400'
+                  : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
+              }`}
+            >
+              <item.icon className="w-4 h-4" />
+              {item.name}
+            </Link>
+          </NavbarMenuItem>
+        ))}
+      </NavbarMenu>
+    </Navbar>
   );
 };

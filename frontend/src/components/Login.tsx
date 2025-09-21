@@ -1,14 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+"use client";
+
+import { Button, Card, CardBody, CardHeader, Input } from "@heroui/react";
+import { Eye, EyeOff, Lock, LogIn, Mail } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthApi } from '../hooks/useAuthApi';
 
-export const Login: React.FC = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+type errors = {
+  email?: string;
+  password?: string;
+};
 
+export const Login: React.FC = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isVisible, setIsVisible] = useState(false);
+  const [errors, setErrors] = useState<errors>({});
+  
   const { loginUser, isLoading, error, isAuthenticated } = useAuthApi();
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,158 +29,167 @@ export const Login: React.FC = () => {
     }
   }, [isAuthenticated, navigate, from]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: '',
-      }));
+  const toggleVisibility = () => setIsVisible(!isVisible);
+
+  // Email validation
+  const getEmailError = (value: string) => {
+    if (!value) {
+      return "Email is required";
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(value)) {
+      return "Please enter a valid email address";
+    }
+
+    return null;
   };
 
-  const validateForm = () => {
-    const newErrors: { [key: string]: string } = {};
-
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
+  // Password validation
+  const getPasswordError = (value: string) => {
+    if (!value) {
+      return "Password is required";
+    }
+    if (value.length < 4) {
+      return "Password must be at least 4 characters";
     }
 
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return null;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
+    // Clear previous errors
+    setErrors({});
+    // Validate fields
+    const emailError = getEmailError(email);
+    const passwordError = getPasswordError(password);
+
+    const newErrors: errors = {};
+
+    if (emailError) newErrors.email = emailError;
+    if (passwordError) newErrors.password = passwordError;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
     try {
-      await loginUser(formData);
+      await loginUser({ email, password });
       navigate(from, { replace: true });
-    } catch (error) {
-      console.error('Login error:', error);
+    } catch (e) {
+      console.error('Login error:', e);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="mx-auto h-12 w-12 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xl">X</span>
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Enter your credentials to access your account
-          </p>
-        </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
-                  errors.email ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
-                placeholder="Email address"
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-              )}
+    <div className="min-h-screen flex items-center justify-center bg-gradient-cyber p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0 glass-dark hover-lift">
+        <CardHeader className="pb-2 pt-8 px-8">
+          <div className="w-full text-center">
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg neon-glow">
+              <LogIn className="w-8 h-8 text-white" />
             </div>
-            
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
-                  errors.password ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
-                placeholder="Password"
-              />
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password}</p>
-              )}
-            </div>
+            <h1 className="text-3xl font-bold gradient-text">
+              Welcome Back
+            </h1>
+            <p className="text-gray-300 mt-2">Sign in to your account</p>
           </div>
+        </CardHeader>
 
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
-          )}
+        <CardBody className="px-8 pb-8">
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <Input
+              classNames={{
+                input: "text-base text-white",
+                inputWrapper:
+                  "h-12 glass border border-gray-600 hover:border-blue-400 focus-within:border-blue-500 shadow-sm",
+                label: "text-gray-300 font-medium",
+              }}
+              errorMessage={errors.email}
+              isInvalid={!!errors.email}
+              label="Email Address"
+              labelPlacement="outside"
+              placeholder="Enter your email"
+              startContent={<Mail className="w-4 h-4 text-gray-400" />}
+              type="email"
+              value={email}
+              onValueChange={(v : any) => {
+                setEmail(v);
+                setErrors({});
+              }}
+            />
 
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Signing in...
-                </div>
-              ) : (
-                'Sign in'
-              )}
-            </button>
-          </div>
+            <Input
+              classNames={{
+                input: "text-base text-white",
+                inputWrapper:
+                  "h-12 glass border border-gray-600 hover:border-blue-400 focus-within:border-blue-500 shadow-sm",
+                label: "text-gray-300 font-medium",
+              }}
+              endContent={
+                <button
+                  className="focus:outline-none"
+                  type="button"
+                  onClick={toggleVisibility}
+                >
+                  {isVisible ? (
+                    <EyeOff className="w-4 h-4 text-gray-400 hover:text-gray-200" />
+                  ) : (
+                    <Eye className="w-4 h-4 text-gray-400 hover:text-gray-200" />
+                  )}
+                </button>
+              }
+              errorMessage={errors.password}
+              isInvalid={!!errors.password}
+              label="Password"
+              labelPlacement="outside"
+              placeholder="Enter your password"
+              startContent={<Lock className="w-4 h-4 text-gray-400" />}
+              type={isVisible ? "text" : "password"}
+              value={password}
+              onValueChange={setPassword}
+            />
 
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <button 
+            {error && (
+              <div className="rounded-md bg-red-500/20 border border-red-500/30 p-4">
+                <div className="text-sm text-red-300">{error}</div>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
                 type="button"
-                className="font-medium text-blue-600 hover:text-blue-500 underline bg-transparent border-none cursor-pointer"
+              >
+                Forgot password?
+              </button>
+            </div>
+
+            <Button
+              className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] neon-glow"
+              isLoading={isLoading}
+              type="submit"
+            >
+              {isLoading ? "Signing In..." : "Sign In"}
+            </Button>
+
+            <div className="text-center pt-4">
+              <span className="text-gray-400">Don&#39;t have an account? </span>
+              <button
+                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                type="button"
                 onClick={() => {
-                  // Handle contact administrator action
                   alert('Please contact your system administrator to create an account.');
                 }}
               >
                 Contact administrator
               </button>
-            </p>
-          </div>
-        </form>
-      </div>
+            </div>
+          </form>
+        </CardBody>
+      </Card>
     </div>
   );
 };

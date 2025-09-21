@@ -17,7 +17,7 @@ export const Layout: React.FC<LayoutProps> = ({
     switch (layoutType) {
       case 'minimal':
         return (
-          <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen bg-gradient-cyber">
             <main className="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
               {children}
             </main>
@@ -26,7 +26,7 @@ export const Layout: React.FC<LayoutProps> = ({
       
       case 'dashboard':
         return (
-          <div className="min-h-screen bg-gray-50 flex">
+          <div className="min-h-screen bg-gradient-cyber flex">
             <Sidebar />
             <div className="flex-1 flex flex-col">
               <Header />
@@ -40,7 +40,7 @@ export const Layout: React.FC<LayoutProps> = ({
       
       default:
         return (
-          <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen bg-gradient-cyber">
             <Header />
             <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
               {children}
