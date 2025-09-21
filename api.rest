@@ -1,8 +1,8 @@
 ### Login
-POST http://localhost:9090/api/v1/auth/login
+POST http://localhost:8080/api/v1/auth/login
 Content-Type: application/json
 
-{
+{ tid
   "email": "amupxm@gmail.com",
   "password": "1202212022"
 }
@@ -10,7 +10,7 @@ Content-Type: application/json
 ###
 
 ### Refresh Token
-POST http://localhost:9090/api/v1/auth/refresh
+POST http://localhost:8080/api/v1/auth/refresh
 Content-Type: application/json
 
 {
@@ -20,7 +20,7 @@ Content-Type: application/json
 ###
 
 ### Logout
-POST http://localhost:9090/api/v1/auth/logout
+POST http://localhost:8080/api/v1/auth/logout
 Content-Type: application/json
 
 {
@@ -30,5 +30,5 @@ Content-Type: application/json
 ###
 
 ### Get User Profile (Protected)
-GET http://localhost:9090/api/v1/protected/profile
+GET http://localhost:8080/api/v1/protected/profile
 Authorization: Bearer your_access_token_here

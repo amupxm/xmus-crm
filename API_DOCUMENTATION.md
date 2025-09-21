@@ -134,7 +134,7 @@ All endpoints return consistent error responses:
 
 1. **Login:**
 ```bash
-curl -X POST http://localhost:9090/api/v1/auth/login \
+curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "amupxm@gmail.com",
@@ -144,7 +144,7 @@ curl -X POST http://localhost:9090/api/v1/auth/login \
 
 2. **Refresh Token:**
 ```bash
-curl -X POST http://localhost:9090/api/v1/auth/refresh \
+curl -X POST http://localhost:8080/api/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{
     "refresh_token": "your_refresh_token_here"
@@ -153,7 +153,7 @@ curl -X POST http://localhost:9090/api/v1/auth/refresh \
 
 3. **Logout:**
 ```bash
-curl -X POST http://localhost:9090/api/v1/auth/logout \
+curl -X POST http://localhost:8080/api/v1/auth/logout \
   -H "Content-Type: application/json" \
   -d '{
     "refresh_token": "your_refresh_token_here"
@@ -162,7 +162,7 @@ curl -X POST http://localhost:9090/api/v1/auth/logout \
 
 4. **Access Protected Route:**
 ```bash
-curl -X GET http://localhost:9090/api/v1/protected/profile \
+curl -X GET http://localhost:8080/api/v1/protected/profile \
   -H "Authorization: Bearer your_access_token_here"
 ```
 
