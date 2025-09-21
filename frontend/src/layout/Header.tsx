@@ -79,12 +79,12 @@ export const Header: React.FC = () => {
                 as="button"
                 avatarProps={{
                   isBordered: true,
-                  src: `https://ui-avatars.com/api/?name=${user.name}&background=667eea&color=fff`,
+                  src: `https://ui-avatars.com/api/?name=${user.email}&background=667eea&color=fff`,
                   className: "transition-transform",
                 }}
                 className="transition-transform"
                 description={user.email}
-                name={user.name}
+                name={user.email}
               />
             </DropdownTrigger>
             <DropdownMenu aria-label="User menu actions" variant="flat">

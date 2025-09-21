@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Provider } from 'react-redux';
-import { useAuthApi } from '../hooks/useAuthApi';
+import { useUser } from '../hooks/useUser';
+import { initializeApi } from '../services/initApi';
 import { store } from '../store';
 
 interface AuthProviderProps {
@@ -8,16 +9,13 @@ interface AuthProviderProps {
 }
 
 const AuthProviderContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { loadUserData, isAuthenticated, accessToken } = useAuthApi();
-
+  // Initialize API interceptors after store is ready
   useEffect(() => {
-    // Check if user is authenticated on app load
-    if (accessToken && !isAuthenticated) {
-      loadUserData().catch((error) => {
-        console.error('Failed to load user:', error);
-      });
-    }
-  }, [accessToken, isAuthenticated, loadUserData]);
+    initializeApi();
+  }, []);
+
+  // This will automatically handle loading user data when authenticated
+  useUser();
 
   return <>{children}</>;
 };

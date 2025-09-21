@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { BrowserRouter as Router } from 'react-router-dom';
 import './App.css';
+import { UserDataProvider } from './components/UserDataProvider';
 import { fontSans } from './config/fonts';
 import { AuthProvider } from './contexts/AuthProvider';
 import { Providers } from './providers';
@@ -15,11 +16,13 @@ function App() {
       )}
     >
       <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
-        <AuthProvider>
-          <Router>
-            <AppRouter />
-          </Router>
-        </AuthProvider>
+        <Router>
+          <AuthProvider>
+            <UserDataProvider>
+              <AppRouter />
+            </UserDataProvider>
+          </AuthProvider>
+        </Router>
       </Providers>
     </div>
   );
