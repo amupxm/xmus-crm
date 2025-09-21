@@ -16,24 +16,36 @@ export const Footer: React.FC = () => {
           
           <div className="mt-4 md:mt-0">
             <nav className="flex space-x-6">
-              <a
-                href="#"
-                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              <button
+                type="button"
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors bg-transparent border-none cursor-pointer"
+                onClick={() => {
+                  // Handle privacy policy action
+                  alert('Privacy Policy - This feature will be implemented soon.');
+                }}
               >
                 Privacy Policy
-              </a>
-              <a
-                href="#"
-                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              </button>
+              <button
+                type="button"
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors bg-transparent border-none cursor-pointer"
+                onClick={() => {
+                  // Handle terms of service action
+                  alert('Terms of Service - This feature will be implemented soon.');
+                }}
               >
                 Terms of Service
-              </a>
-              <a
-                href="#"
-                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              </button>
+              <button
+                type="button"
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors bg-transparent border-none cursor-pointer"
+                onClick={() => {
+                  // Handle contact action
+                  alert('Contact - This feature will be implemented soon.');
+                }}
               >
                 Contact
-              </a>
+              </button>
             </nav>
           </div>
         </div>

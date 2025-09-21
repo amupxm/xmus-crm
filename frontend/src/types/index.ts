@@ -5,4 +5,5 @@ export interface RouteConfig {
   element: React.ComponentType;
   layout?: LayoutType;
   title?: string;
+  protected?: boolean;
 }
