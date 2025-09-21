@@ -9,15 +9,50 @@ import (
 )
 
 func main() {
+	// Migration flag - set to true to run migrations
+	migration := true
+
 	log := service.InitLogger()
 	db, err := service.GetDBConnection()
 	if err != nil {
 		log.Error().Err(err).Msg("error while init the database")
 	}
 
+	// Drop existing tables and recreate them for clean migration
+	if migration {
+		log.Info().Msg("Dropping existing tables...")
+		db.Exec("DROP TABLE IF EXISTS user_roles CASCADE")
+		db.Exec("DROP TABLE IF EXISTS team_members CASCADE")
+		db.Exec("DROP TABLE IF EXISTS users CASCADE")
+		db.Exec("DROP TABLE IF EXISTS roles CASCADE")
+		db.Exec("DROP TABLE IF EXISTS permissions CASCADE")
+		db.Exec("DROP TABLE IF EXISTS countries CASCADE")
+		db.Exec("DROP TABLE IF EXISTS teams CASCADE")
+		db.Exec("DROP TABLE IF EXISTS leave_requests CASCADE")
+	}
+
 	// Auto-migrate the database schema
-	if err := db.AutoMigrate(&model.User{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{},
+		&model.Role{},
+		&model.Permission{},
+		&model.Country{},
+		&model.Team{},
+		&model.TeamMember{},
+		&model.LeaveRequest{},
+	); err != nil {
 		log.Error().Err(err).Msg("failed to migrate database")
+	}
+
+	// Run migration if flag is set
+	if migration {
+		log.Info().Msg("Running database migration...")
+		migrationService := service.NewMigration(db)
+		if err := migrationService.RunMigration(); err != nil {
+			log.Error().Err(err).Msg("failed to run migration")
+		} else {
+			log.Info().Msg("Database migration completed successfully")
+		}
 	}
 
 	router := service.InitGinRouter()
@@ -29,6 +64,10 @@ func main() {
 	apiGroup := router.Group("/api/v1")
 	authAPI := api.NewAuthAPI(db)
 	authAPI.RegisterRoutes(apiGroup)
+
+	// Initialize User API
+	userAPI := api.NewUserAPI(db)
+	userAPI.SetupRoutes(apiGroup)
 
 	// Protected routes example
 	protected := apiGroup.Group("/protected")

@@ -97,7 +97,21 @@ func (u *UserModel) CreateTestUser() (*User, error) {
 		return nil, err
 	}
 
-	user := &User{
+	now := time.Now()
+
+	// Get the development team from the predefined teams
+	var devTeam Team
+	if err := u.db.Where("id = ?", 4).First(&devTeam).Error; err != nil {
+		return nil, err
+	}
+
+	// Check if user already exists
+	var existing User
+	if err := u.db.Where("email = ?", "amupxm@gmail.com").First(&existing).Error; err == nil {
+		return &existing, nil
+	}
+
+	testUser := &User{
 		Email:          "amupxm@gmail.com",
 		Password:       hashedPassword,
 		FirstName:      "amup",
@@ -105,15 +119,27 @@ func (u *UserModel) CreateTestUser() (*User, error) {
 		IsActiveUser:   true,
 		Salary:         50000.0,
 		SalaryCurrency: "USD",
-		PrimaryRoleID:  5, // ADMIN role
-		PrimaryTeamID:  1, // ADMIN_TEAM
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		PrimaryRoleID:  5, // ADMIN role ID
+		PrimaryTeamID:  4, // DEVELOPMENT_TEAM ID
 	}
 
-	if err := u.CreateNewUser(user); err != nil {
+	if err := u.db.Create(testUser).Error; err != nil {
 		return nil, err
 	}
 
-	return user, nil
+	// Add many-to-many relationships after user is created
+	// Get the admin role and development team from database
+	var adminRole Role
+	if err := u.db.Where("id = ?", 5).First(&adminRole).Error; err == nil {
+		u.db.Model(testUser).Association("Roles").Append(&adminRole)
+	}
+
+	// Use the devTeam variable that was already declared above
+	u.db.Model(testUser).Association("Teams").Append(&devTeam)
+
+	return testUser, nil
 }
 
 // GetUserPermissions returns all permissions for a user based on their roles

@@ -1,13 +1,19 @@
 package model
 
-import "gorm.io/gorm"
+import (
+	"time"
 
-// now we mock the database since the data is almost static
-// later we can implement real database model for it :
+	"gorm.io/gorm"
+)
+
+// Permission represents a system permission
 type Permission struct {
-	Id          uint
-	Key         string
+	Id          uint   `gorm:"primaryKey"`
+	Key         string `gorm:"unique;not null"`
 	Description string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   gorm.DeletedAt `gorm:"index"`
 }
 
 var permissions = map[uint]Permission{
@@ -68,6 +74,26 @@ var permissions = map[uint]Permission{
 		Id:          11,
 		Key:         "EDIT_OTHER_PROFILES",
 		Description: "user can edit other users' profiles",
+	},
+	22: {
+		Id:          22,
+		Key:         "CREATE_USERS",
+		Description: "user can create new users",
+	},
+	23: {
+		Id:          23,
+		Key:         "READ_USERS",
+		Description: "user can read user information",
+	},
+	24: {
+		Id:          24,
+		Key:         "UPDATE_USERS",
+		Description: "user can update user information",
+	},
+	25: {
+		Id:          25,
+		Key:         "DELETE_USERS",
+		Description: "user can delete users",
 	},
 
 	// Team Management Permissions
