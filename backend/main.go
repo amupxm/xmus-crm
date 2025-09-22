@@ -13,7 +13,7 @@ func main() {
 	migration := true
 
 	log := service.InitLogger()
-	db, err := service.GetDBConnection()
+	db, err := service.GetDBConnection(log)
 	if err != nil {
 		log.Error().Err(err).Msg("error while init the database")
 	}
@@ -55,7 +55,7 @@ func main() {
 		}
 	}
 
-	router := service.InitGinRouter()
+	router := service.InitGinRouter(log)
 	router.GET("/health", func(c *service.GinContext) {
 		c.JSON(200, map[string]string{"status": "ok"})
 	})

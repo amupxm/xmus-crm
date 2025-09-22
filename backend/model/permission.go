@@ -155,12 +155,12 @@ var permissions = map[uint]Permission{
 	},
 }
 
-type permissionModel struct {
+type PermissionModel struct {
 	db *gorm.DB
 }
 
-func NewPermissionModel(db *gorm.DB) *permissionModel {
-	return &permissionModel{
+func NewPermissionModel(db *gorm.DB) *PermissionModel {
+	return &PermissionModel{
 		db: db,
 	}
 }
@@ -211,4 +211,28 @@ func HasPermission(userPermissions []uint, permissionKey string) bool {
 		}
 	}
 	return false
+}
+
+// CreatePermission creates a new permission in the database
+func (p *PermissionModel) CreatePermission(permission *Permission) error {
+	return p.db.Create(permission).Error
+}
+
+// GetPermission retrieves a permission from the database
+func (p *PermissionModel) GetPermission(id uint) (*Permission, error) {
+	var permission Permission
+	if err := p.db.First(&permission, id).Error; err != nil {
+		return nil, err
+	}
+	return &permission, nil
+}
+
+// UpdatePermission updates a permission in the database
+func (p *PermissionModel) UpdatePermission(permission *Permission) error {
+	return p.db.Save(permission).Error
+}
+
+// DeletePermission soft deletes a permission
+func (p *PermissionModel) DeletePermission(id uint) error {
+	return p.db.Delete(&Permission{}, id).Error
 }
