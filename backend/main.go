@@ -77,6 +77,10 @@ func main() {
 	rolesAPI := api.NewRoleAPI(db)
 	rolesAPI.SetupRoutes(apiGroup)
 
+	// Initialize Teams API
+	teamsAPI := api.NewTeamAPI(db)
+	teamsAPI.SetupRoutes(apiGroup)
+
 	// Protected routes example
 	protected := apiGroup.Group("/protected")
 	protected.Use(middleware.AuthMiddleware())

@@ -163,6 +163,7 @@ func (m *Migration) migrateCountries() error {
 func (m *Migration) migrateTeams() error {
 	teams := model.GetAllTeams()
 	now := time.Now()
+	maxID := uint(0)
 
 	for _, team := range teams {
 		// Check if team already exists
@@ -175,6 +176,9 @@ func (m *Migration) migrateTeams() error {
 				if err := m.db.Create(&team).Error; err != nil {
 					return err
 				}
+				if team.ID > maxID {
+					maxID = team.ID
+				}
 			} else {
 				return err
 			}
@@ -185,6 +189,16 @@ func (m *Migration) migrateTeams() error {
 			if err := m.db.Save(&team).Error; err != nil {
 				return err
 			}
+			if team.ID > maxID {
+				maxID = team.ID
+			}
+		}
+	}
+
+	// Update the sequence to start from the next available ID
+	if maxID > 0 {
+		if err := m.db.Exec("SELECT setval('teams_id_seq', ?)", maxID).Error; err != nil {
+			return err
 		}
 	}
 

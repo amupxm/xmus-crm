@@ -145,7 +145,7 @@ func (t *TeamModel) CreateTeam(team *Team) error {
 // GetTeam retrieves a team from the database
 func (t *TeamModel) GetTeam(id uint) (*Team, error) {
 	var team Team
-	if err := t.db.Preload("TeamLead").Preload("Members").First(&team, id).Error; err != nil {
+	if err := t.db.First(&team, id).Error; err != nil {
 		return nil, err
 	}
 	return &team, nil
@@ -154,7 +154,7 @@ func (t *TeamModel) GetTeam(id uint) (*Team, error) {
 // GetAllTeams retrieves all teams from the database
 func (t *TeamModel) GetAllTeams() ([]Team, error) {
 	var teams []Team
-	if err := t.db.Preload("TeamLead").Preload("Members").Find(&teams).Error; err != nil {
+	if err := t.db.Find(&teams).Error; err != nil {
 		return nil, err
 	}
 	return teams, nil
