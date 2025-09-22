@@ -48,4 +48,39 @@ export interface Permission {
   id: number;
   key: string;
   description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePermissionRequest {
+  key: string;
+  description: string;
+}
+
+export interface UpdatePermissionRequest {
+  key?: string;
+  description?: string;
+}
+
+export interface PermissionResponse {
+  success: boolean;
+  message: string;
+  data: Permission;
+}
+
+export interface PermissionListResponse {
+  success: boolean;
+  message: string;
+  data: Permission[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
+
+export interface ErrorResponse {
+  success: false;
+  message: string;
+  errors?: string[];
 }

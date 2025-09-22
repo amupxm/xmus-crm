@@ -8,7 +8,6 @@ export const UserProfile: React.FC = () => {
     permissions, 
     isLoading, 
     hasRole, 
-    hasPermission,
     getPrimaryRole,
     getPrimaryTeam,
     refreshUser 
