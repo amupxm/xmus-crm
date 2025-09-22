@@ -69,6 +69,10 @@ func main() {
 	userAPI := api.NewUserAPI(db)
 	userAPI.SetupRoutes(apiGroup)
 
+	// Initialize Permissions API
+	permissionsAPI := api.NewPermissionAPI(db)
+	permissionsAPI.SetupRoutes(apiGroup)
+
 	// Protected routes example
 	protected := apiGroup.Group("/protected")
 	protected.Use(middleware.AuthMiddleware())
