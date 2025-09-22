@@ -19,6 +19,55 @@ export interface Team {
   id: number;
   name: string;
   description: string;
+  team_lead_id: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeamMember {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  is_active: boolean;
+}
+
+export interface CreateTeamRequest {
+  name: string;
+  description: string;
+  team_lead_id: number;
+  is_active: boolean;
+}
+
+export interface UpdateTeamRequest {
+  name?: string;
+  description?: string;
+  team_lead_id?: number;
+  is_active?: boolean;
+}
+
+export interface TeamResponse {
+  success: boolean;
+  message: string;
+  data: Team;
+}
+
+export interface TeamListResponse {
+  success: boolean;
+  message: string;
+  data: Team[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
+
+export interface TeamMembersResponse {
+  success: boolean;
+  message: string;
+  data: TeamMember[];
 }
 
 export interface User {
