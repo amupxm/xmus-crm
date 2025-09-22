@@ -1,17 +1,15 @@
 import {
-    BarChart3,
-    Bell,
-    Briefcase,
-    Building2,
-    Calendar,
-    Database,
-    DollarSign,
-    FileText,
-    Home,
-    Settings,
-    Shield,
-    UserCheck,
-    Users
+  BarChart3,
+  Bell,
+  Briefcase,
+  Building2,
+  Calendar,
+  Database,
+  FileText,
+  Home,
+  Settings,
+  Shield,
+  UserCheck
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -33,22 +31,22 @@ export const menuItems: MenuItem[] = [
     icon: Home,
     order: 1,
   },
-  {
-    id: 'customers',
-    name: 'Customers',
-    href: '/customers',
-    icon: Users,
-    requiredRoles: ['ADMIN', 'MANAGEMENT', 'HR'],
-    order: 2,
-  },
-  {
-    id: 'sales',
-    name: 'Sales',
-    href: '/sales',
-    icon: DollarSign,
-    requiredRoles: ['ADMIN', 'MANAGEMENT', 'HR'],
-    order: 3,
-  },
+  // {
+  //   id: 'customers',
+  //   name: 'Customers',
+  //   href: '/customers',
+  //   icon: Users,
+  //   requiredRoles: ['ADMIN', 'MANAGEMENT', 'HR'],
+  //   order: 2,
+  // },
+  // {
+  //   id: 'sales',
+  //   name: 'Sales',
+  //   href: '/sales',
+  //   icon: DollarSign,
+  //   requiredRoles: ['ADMIN'],
+  //   order: 3,
+  // },
   {
     id: 'projects',
     name: 'Projects',
