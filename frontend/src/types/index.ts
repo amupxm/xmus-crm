@@ -80,17 +80,54 @@ export interface User {
   salary_currency: string;
   primary_role_id: number;
   primary_team_id: number;
-  roles: Role[];
-  teams: Team[];
+  roles?: Role[];
+  teams?: Team[];
   last_login?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface CreateUserRequest {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  salary: number;
+  salary_currency: string;
+  primary_role_id: number;
+  primary_team_id: number;
+  role_ids?: number[];
+  team_ids?: number[];
+}
+
+export interface UpdateUserRequest {
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  salary?: number;
+  salary_currency?: string;
+  is_active?: boolean;
+  primary_role_id?: number;
+  primary_team_id?: number;
+  role_ids?: number[];
+  team_ids?: number[];
 }
 
 export interface UserResponse {
   success: boolean;
   message: string;
   data: User;
+}
+
+export interface UserListResponse {
+  success: boolean;
+  message: string;
+  data: User[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+  };
 }
 
 export interface Permission {

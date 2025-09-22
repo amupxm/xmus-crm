@@ -1,19 +1,11 @@
 import {
+    CreateUserRequest,
     ErrorResponse,
-    User
+    UpdateUserRequest,
+    UserListResponse,
+    UserResponse
 } from '../types';
 import api from './apiConfig';
-
-export interface UserListResponse {
-  success: boolean;
-  message: string;
-  data: User[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-  };
-}
 
 export class UsersApi {
   private baseUrl = '/users';
@@ -26,6 +18,66 @@ export class UsersApi {
       const response = await api.get<UserListResponse>(this.baseUrl, {
         params: { page, limit }
       });
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get a specific user by ID
+   */
+  async getUser(id: number): Promise<UserResponse> {
+    try {
+      const response = await api.get<UserResponse>(`${this.baseUrl}/${id}`);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get current user information
+   */
+  async getMe(): Promise<UserResponse> {
+    try {
+      const response = await api.get<UserResponse>(`${this.baseUrl}/get_me`);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Create a new user
+   */
+  async createUser(data: CreateUserRequest): Promise<UserResponse> {
+    try {
+      const response = await api.post<UserResponse>(this.baseUrl, data);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Update a user
+   */
+  async updateUser(id: number, data: UpdateUserRequest): Promise<UserResponse> {
+    try {
+      const response = await api.put<UserResponse>(`${this.baseUrl}/${id}`, data);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Delete a user
+   */
+  async deleteUser(id: number): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await api.delete<{ success: boolean; message: string }>(`${this.baseUrl}/${id}`);
       return response.data;
     } catch (error: any) {
       throw this.handleError(error);
