@@ -84,3 +84,45 @@ export interface ErrorResponse {
   message: string;
   errors?: string[];
 }
+
+// Role Types
+export interface Role {
+  id: number;
+  name: string;
+  description: string;
+  is_active: boolean;
+  permissions: number[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRoleRequest {
+  name: string;
+  description: string;
+  is_active: boolean;
+  permissions: number[];
+}
+
+export interface UpdateRoleRequest {
+  name?: string;
+  description?: string;
+  is_active?: boolean;
+  permissions?: number[];
+}
+
+export interface RoleResponse {
+  success: boolean;
+  message: string;
+  data: Role;
+}
+
+export interface RoleListResponse {
+  success: boolean;
+  message: string;
+  data: Role[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
