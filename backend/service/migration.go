@@ -47,6 +47,7 @@ func (m *Migration) RunMigration() error {
 // migratePermissions inserts all predefined permissions into the database
 func (m *Migration) migratePermissions() error {
 	permissions := model.GetAllPermissions()
+	maxID := uint(0)
 
 	for _, perm := range permissions {
 		// Check if permission already exists
@@ -57,9 +58,23 @@ func (m *Migration) migratePermissions() error {
 				if err := m.db.Create(&perm).Error; err != nil {
 					return err
 				}
+				if perm.Id > maxID {
+					maxID = perm.Id
+				}
 			} else {
 				return err
 			}
+		} else {
+			if perm.Id > maxID {
+				maxID = perm.Id
+			}
+		}
+	}
+
+	// Update the sequence to start from the next available ID
+	if maxID > 0 {
+		if err := m.db.Exec("SELECT setval('permissions_id_seq', ?)", maxID).Error; err != nil {
+			return err
 		}
 	}
 
@@ -70,6 +85,7 @@ func (m *Migration) migratePermissions() error {
 func (m *Migration) migrateRoles() error {
 	roles := model.GetAllRoles()
 	now := time.Now()
+	maxID := uint(0)
 
 	for _, role := range roles {
 		// Check if role already exists
@@ -82,6 +98,9 @@ func (m *Migration) migrateRoles() error {
 				if err := m.db.Create(&role).Error; err != nil {
 					return err
 				}
+				if role.ID > maxID {
+					maxID = role.ID
+				}
 			} else {
 				return err
 			}
@@ -92,6 +111,16 @@ func (m *Migration) migrateRoles() error {
 			if err := m.db.Save(&role).Error; err != nil {
 				return err
 			}
+			if role.ID > maxID {
+				maxID = role.ID
+			}
+		}
+	}
+
+	// Update the sequence to start from the next available ID
+	if maxID > 0 {
+		if err := m.db.Exec("SELECT setval('roles_id_seq', ?)", maxID).Error; err != nil {
+			return err
 		}
 	}
 
