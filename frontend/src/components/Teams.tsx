@@ -1,22 +1,22 @@
 import {
-    Edit,
-    MoreVertical,
-    Plus,
-    Search,
-    Trash2,
-    UserMinus,
-    UserPlus,
-    Users
+  Edit,
+  MoreVertical,
+  Plus,
+  Search,
+  Trash2,
+  UserMinus,
+  UserPlus,
+  Users
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { teamsApi } from '../services/teamsApi';
 import { usersApi } from '../services/usersApi';
 import {
-    CreateTeamRequest,
-    Team,
-    TeamMember,
-    UpdateTeamRequest,
-    User
+  CreateTeamRequest,
+  Team,
+  TeamMember,
+  UpdateTeamRequest,
+  User
 } from '../types';
 
 export const Teams: React.FC = () => {
@@ -72,7 +72,7 @@ export const Teams: React.FC = () => {
   const loadTeamMembers = async (teamId: number) => {
     try {
       const response = await teamsApi.getTeamMembers(teamId);
-      setTeamMembers(response.data);
+      setTeamMembers(response.data || []);
     } catch (err: any) {
       console.error('Failed to load team members:', err);
     }
@@ -505,7 +505,12 @@ export const Teams: React.FC = () => {
             </div>
             
             <div className="space-y-3">
-              {teamMembers.length === 0 ? (
+              {!teamMembers && (
+                <div className="text-center py-8 text-gray-400">
+                  No members in this team yet.
+                </div>
+              )}
+              {teamMembers && teamMembers.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   No members in this team yet.
                 </div>

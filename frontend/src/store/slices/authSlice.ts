@@ -2,6 +2,17 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { authApi } from '../../services/authApi';
 import { User } from '../../types';
 
+// Utility function to check if a JWT token is expired
+const isTokenExpired = (token: string): boolean => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentTime = Math.floor(Date.now() / 1000);
+    return payload.exp < currentTime;
+  } catch (error) {
+    return true; // If we can't parse the token, consider it expired
+  }
+};
+
 export interface AuthState {
   user: User | null;
   accessToken: string | null;
@@ -11,14 +22,26 @@ export interface AuthState {
   error: string | null;
 }
 
-const initialState: AuthState = {
-  user: null,
-  accessToken: localStorage.getItem('accessToken'),
-  refreshToken: localStorage.getItem('refreshToken'),
-  isAuthenticated: false,
-  isLoading: false,
-  error: null,
+// Helper function to get initial auth state
+const getInitialAuthState = (): AuthState => {
+  const accessToken = localStorage.getItem('accessToken');
+  const refreshToken = localStorage.getItem('refreshToken');
+  
+  // Check if tokens exist and are not expired
+  const isAccessTokenValid = accessToken && !isTokenExpired(accessToken);
+  const isRefreshTokenValid = refreshToken && !isTokenExpired(refreshToken);
+  
+  return {
+    user: null,
+    accessToken: isAccessTokenValid ? accessToken : null,
+    refreshToken: isRefreshTokenValid ? refreshToken : null,
+    isAuthenticated: (isAccessTokenValid != null && isAccessTokenValid != false && isRefreshTokenValid != null && isRefreshTokenValid != false),
+    isLoading: false,
+    error: null,
+  };
 };
+
+const initialState: AuthState = getInitialAuthState();
 
 // Async thunks
 export const login = createAsyncThunk(
@@ -87,6 +110,70 @@ export const loadUser = createAsyncThunk(
   }
 );
 
+export const initializeAuth = createAsyncThunk(
+  'auth/initializeAuth',
+  async (_, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as { auth: AuthState };
+      const accessToken = state.auth.accessToken;
+      const refreshToken = state.auth.refreshToken;
+      
+      // If no tokens, user is not authenticated
+      if (!accessToken || !refreshToken) {
+        return { isAuthenticated: false };
+      }
+
+      // Check if access token is expired
+      if (isTokenExpired(accessToken)) {
+        // If access token is expired, try to refresh it
+        if (!isTokenExpired(refreshToken)) {
+          try {
+            const refreshResponse = await authApi.refreshToken(refreshToken);
+            return {
+              isAuthenticated: true,
+              accessToken: refreshResponse.data.data.access_token,
+              refreshToken: refreshResponse.data.data.refresh_token,
+            };
+          } catch (refreshError) {
+            // Refresh failed, user needs to login again
+            return { isAuthenticated: false };
+          }
+        } else {
+          // Both tokens are expired
+          return { isAuthenticated: false };
+        }
+      }
+
+      // Access token is valid, try to validate it by making a request to get current user
+      try {
+        const response = await authApi.getCurrentUser();
+        return { 
+          isAuthenticated: true, 
+          user: response.data.data 
+        };
+      } catch (error: any) {
+        // If the access token is invalid, try to refresh it
+        if (error.response?.status === 401) {
+          try {
+            const refreshResponse = await authApi.refreshToken(refreshToken);
+            return {
+              isAuthenticated: true,
+              accessToken: refreshResponse.data.data.access_token,
+              refreshToken: refreshResponse.data.data.refresh_token,
+            };
+          } catch (refreshError) {
+            // Refresh failed, user needs to login again
+            return { isAuthenticated: false };
+          }
+        }
+        throw error;
+      }
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to initialize auth');
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -103,6 +190,19 @@ const authSlice = createSlice({
       state.error = null;
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+    },
+    clearExpiredTokens: (state) => {
+      // Check and clear expired tokens
+      if (state.accessToken && isTokenExpired(state.accessToken)) {
+        state.accessToken = null;
+        localStorage.removeItem('accessToken');
+      }
+      if (state.refreshToken && isTokenExpired(state.refreshToken)) {
+        state.refreshToken = null;
+        localStorage.removeItem('refreshToken');
+      }
+      // Update authentication status
+      state.isAuthenticated = !!(state.accessToken && state.refreshToken);
     },
   },
   extraReducers: (builder) => {
@@ -212,8 +312,53 @@ const authSlice = createSlice({
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
       });
+
+    // Initialize auth
+    builder
+      .addCase(initializeAuth.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(initializeAuth.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isAuthenticated = action.payload.isAuthenticated;
+        
+        if (action.payload.isAuthenticated) {
+          if (action.payload.user) {
+            state.user = action.payload.user;
+          }
+          if (action.payload.accessToken) {
+            state.accessToken = action.payload.accessToken;
+            localStorage.setItem('accessToken', action.payload.accessToken);
+          }
+          if (action.payload.refreshToken) {
+            state.refreshToken = action.payload.refreshToken;
+            localStorage.setItem('refreshToken', action.payload.refreshToken);
+          }
+        } else {
+          // Clear auth state if not authenticated
+          state.user = null;
+          state.accessToken = null;
+          state.refreshToken = null;
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+        }
+        
+        state.error = null;
+      })
+      .addCase(initializeAuth.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+        state.isAuthenticated = false;
+        state.user = null;
+        state.accessToken = null;
+        state.refreshToken = null;
+        
+        // Clear tokens from localStorage
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+      });
   },
 });
 
-export const { clearError, clearAuth } = authSlice.actions;
+export const { clearError, clearAuth, clearExpiredTokens } = authSlice.actions;
 export default authSlice.reducer;
