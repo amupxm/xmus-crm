@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { BrowserRouter as Router } from 'react-router-dom';
 import './App.css';
+import { NotificationProvider } from './components/NotificationSystem';
 import { UserDataProvider } from './components/UserDataProvider';
 import { fontSans } from './config/fonts';
 import { AuthProvider } from './contexts/AuthProvider';
@@ -19,7 +20,9 @@ function App() {
         <Router>
           <AuthProvider>
             <UserDataProvider>
-              <AppRouter />
+              <NotificationProvider>
+                <AppRouter />
+              </NotificationProvider>
             </UserDataProvider>
           </AuthProvider>
         </Router>
