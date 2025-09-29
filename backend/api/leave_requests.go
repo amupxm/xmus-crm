@@ -30,18 +30,18 @@ func NewLeaveRequestHandler(db *gorm.DB) *LeaveRequestHandler {
 
 // CreateLeaveRequestRequest represents the request body for creating a leave request
 type CreateLeaveRequestRequest struct {
-	LeaveType string    `json:"leave_type" binding:"required"`
-	StartDate time.Time `json:"start_date" binding:"required"`
-	EndDate   time.Time `json:"end_date" binding:"required"`
-	Reason    string    `json:"reason"`
+	LeaveType string `json:"leave_type" binding:"required"`
+	StartDate string `json:"start_date" binding:"required"`
+	EndDate   string `json:"end_date" binding:"required"`
+	Reason    string `json:"reason"`
 }
 
 // UpdateLeaveRequestRequest represents the request body for updating a leave request
 type UpdateLeaveRequestRequest struct {
-	LeaveType string    `json:"leave_type"`
-	StartDate time.Time `json:"start_date"`
-	EndDate   time.Time `json:"end_date"`
-	Reason    string    `json:"reason"`
+	LeaveType string `json:"leave_type"`
+	StartDate string `json:"start_date"`
+	EndDate   string `json:"end_date"`
+	Reason    string `json:"reason"`
 }
 
 // ApprovalRequest represents the request body for approval actions
@@ -63,6 +63,19 @@ func (h *LeaveRequestHandler) CreateLeaveRequest(c *gin.Context) {
 		return
 	}
 
+	// Parse date strings
+	startDate, err := time.Parse("2006-01-02", req.StartDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid start_date format. Expected YYYY-MM-DD"})
+		return
+	}
+
+	endDate, err := time.Parse("2006-01-02", req.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end_date format. Expected YYYY-MM-DD"})
+		return
+	}
+
 	// Convert string to LeaveType
 	leaveType := model.LeaveType(req.LeaveType)
 
@@ -70,8 +83,8 @@ func (h *LeaveRequestHandler) CreateLeaveRequest(c *gin.Context) {
 	leaveRequest := &model.LeaveRequest{
 		UserID:    userID.(uint),
 		LeaveType: leaveType,
-		StartDate: req.StartDate,
-		EndDate:   req.EndDate,
+		StartDate: startDate,
+		EndDate:   endDate,
 		Reason:    req.Reason,
 		Status:    model.StatusPending,
 	}
@@ -234,11 +247,21 @@ func (h *LeaveRequestHandler) UpdateLeaveRequest(c *gin.Context) {
 	if req.LeaveType != "" {
 		leaveRequest.LeaveType = model.LeaveType(req.LeaveType)
 	}
-	if !req.StartDate.IsZero() {
-		leaveRequest.StartDate = req.StartDate
+	if req.StartDate != "" {
+		startDate, err := time.Parse("2006-01-02", req.StartDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid start_date format. Expected YYYY-MM-DD"})
+			return
+		}
+		leaveRequest.StartDate = startDate
 	}
-	if !req.EndDate.IsZero() {
-		leaveRequest.EndDate = req.EndDate
+	if req.EndDate != "" {
+		endDate, err := time.Parse("2006-01-02", req.EndDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end_date format. Expected YYYY-MM-DD"})
+			return
+		}
+		leaveRequest.EndDate = endDate
 	}
 	if req.Reason != "" {
 		leaveRequest.Reason = req.Reason
@@ -307,7 +330,10 @@ func (h *LeaveRequestHandler) CancelLeaveRequest(c *gin.Context) {
 func (h *LeaveRequestHandler) GetLeaveBalance(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
@@ -315,24 +341,42 @@ func (h *LeaveRequestHandler) GetLeaveBalance(c *gin.Context) {
 	yearStr := c.DefaultQuery("year", strconv.Itoa(time.Now().Year()))
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid year parameter"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid year parameter",
+		})
 		return
 	}
 
 	// Initialize balances if they don't exist
 	if err := h.leaveBalanceModel.InitializeUserLeaveBalances(userID.(uint), year); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize leave balances"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to initialize leave balances",
+		})
 		return
 	}
 
 	balances, err := h.leaveBalanceModel.GetUserLeaveBalance(userID.(uint), year)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve leave balance"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to retrieve leave balance",
+		})
 		return
 	}
 
+	// Convert to response format
+	balanceResponses := make([]LeaveBalanceResponse, len(balances))
+	for i, balance := range balances {
+		balanceResponses[i] = convertToLeaveBalanceResponse(balance)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"data": balances,
+		"success": true,
+		"message": "Leave balance retrieved successfully",
+		"data":    balanceResponses,
+		"year":    year,
 	})
 }
 
