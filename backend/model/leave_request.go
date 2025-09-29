@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -285,4 +286,389 @@ func (l *LeaveRequestModel) GetLeaveRequestStats(userID uint) (map[string]int, e
 	}
 
 	return stats, nil
+}
+
+// GetUserLeaveBalanceByType returns leave balance for a user by leave type for a specific year
+func (l *LeaveRequestModel) GetUserLeaveBalanceByType(userID uint, year int) (map[LeaveType]int, error) {
+	balance := make(map[LeaveType]int)
+
+	// Get all approved leave requests for the year
+	var requests []LeaveRequest
+	startOfYear := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	endOfYear := time.Date(year, 12, 31, 23, 59, 59, 999999999, time.UTC)
+
+	if err := l.db.Where("user_id = ? AND status = ? AND start_date >= ? AND start_date <= ?",
+		userID, StatusApproved, startOfYear, endOfYear).Find(&requests).Error; err != nil {
+		return nil, err
+	}
+
+	// Count days by leave type
+	for _, request := range requests {
+		balance[request.LeaveType] += request.DaysRequested
+	}
+
+	return balance, nil
+}
+
+// GetUserLeaveBalanceForCurrentYear returns leave balance for current year
+func (l *LeaveRequestModel) GetUserLeaveBalanceForCurrentYear(userID uint) (map[LeaveType]int, error) {
+	return l.GetUserLeaveBalanceByType(userID, time.Now().Year())
+}
+
+// CheckLeaveOverlap checks if there are overlapping leave requests
+func (l *LeaveRequestModel) CheckLeaveOverlap(userID uint, startDate, endDate time.Time, excludeID *uint) (bool, error) {
+	var count int64
+	query := l.db.Model(&LeaveRequest{}).Where("user_id = ? AND status IN ? AND ((start_date <= ? AND end_date >= ?) OR (start_date <= ? AND end_date >= ?))",
+		userID, []LeaveRequestStatus{StatusPending, StatusTeamLeadApproved, StatusHRApproved, StatusManagementApproved, StatusApproved},
+		endDate, startDate, startDate, endDate)
+
+	if excludeID != nil {
+		query = query.Where("id != ?", *excludeID)
+	}
+
+	if err := query.Count(&count).Error; err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+// ValidateLeaveRequest validates a leave request before creation
+func (l *LeaveRequestModel) ValidateLeaveRequest(request *LeaveRequest) error {
+	// Check if start date is not in the past
+	if request.StartDate.Before(time.Now().Truncate(24 * time.Hour)) {
+		return fmt.Errorf("start date cannot be in the past")
+	}
+
+	// Check if end date is after start date
+	if request.EndDate.Before(request.StartDate) {
+		return fmt.Errorf("end date must be after start date")
+	}
+
+	// Check for overlapping leave requests
+	hasOverlap, err := l.CheckLeaveOverlap(request.UserID, request.StartDate, request.EndDate, nil)
+	if err != nil {
+		return err
+	}
+	if hasOverlap {
+		return fmt.Errorf("leave request overlaps with existing approved or pending leave")
+	}
+
+	// Calculate days requested
+	request.DaysRequested = int(request.EndDate.Sub(request.StartDate).Hours()/24) + 1
+
+	return nil
+}
+
+// GetLeaveRequestsByYear retrieves leave requests for a specific year
+func (l *LeaveRequestModel) GetLeaveRequestsByYear(userID uint, year int) ([]LeaveRequest, error) {
+	var requests []LeaveRequest
+	startOfYear := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	endOfYear := time.Date(year, 12, 31, 23, 59, 59, 999999999, time.UTC)
+
+	if err := l.db.Where("user_id = ? AND start_date >= ? AND start_date <= ?",
+		userID, startOfYear, endOfYear).
+		Preload("User").Preload("TeamLead").
+		Order("start_date DESC").
+		Find(&requests).Error; err != nil {
+		return nil, err
+	}
+
+	return requests, nil
+}
+
+// GetTeamLeaveRequests retrieves leave requests for all team members
+func (l *LeaveRequestModel) GetTeamLeaveRequests(teamLeadID uint, year int) ([]LeaveRequest, error) {
+	var requests []LeaveRequest
+	startOfYear := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	endOfYear := time.Date(year, 12, 31, 23, 59, 59, 999999999, time.UTC)
+
+	// Get team members first
+	userModel := NewUserModel(l.db)
+	teamMembers, err := userModel.GetUsersByTeam(teamLeadID)
+	if err != nil {
+		return nil, err
+	}
+
+	var userIDs []uint
+	for _, member := range teamMembers {
+		userIDs = append(userIDs, member.ID)
+	}
+
+	if err := l.db.Where("user_id IN ? AND start_date >= ? AND start_date <= ?",
+		userIDs, startOfYear, endOfYear).
+		Preload("User").Preload("TeamLead").
+		Order("start_date DESC").
+		Find(&requests).Error; err != nil {
+		return nil, err
+	}
+
+	return requests, nil
+}
+
+// ProcessLeaveRequestWorkflow processes the approval workflow for a leave request
+func (l *LeaveRequestModel) ProcessLeaveRequestWorkflow(requestID uint, approverID uint, action string, comments string) error {
+	// Get the leave request
+	request, err := l.GetLeaveRequest(requestID)
+	if err != nil {
+		return err
+	}
+
+	// Determine the next step based on current status and action
+	switch request.Status {
+	case StatusPending:
+		if action == "approve" {
+			// Check if user is team lead
+			userModel := NewUserModel(l.db)
+			isTeamLead, err := userModel.IsUserTeamLead(approverID)
+			if err != nil {
+				return err
+			}
+
+			if isTeamLead && request.TeamLeadID != nil && *request.TeamLeadID == approverID {
+				// Team lead approval
+				return l.ApproveByTeamLead(requestID, approverID, comments)
+			}
+		} else if action == "reject" {
+			// Check if user is team lead
+			userModel := NewUserModel(l.db)
+			isTeamLead, err := userModel.IsUserTeamLead(approverID)
+			if err != nil {
+				return err
+			}
+
+			if isTeamLead && request.TeamLeadID != nil && *request.TeamLeadID == approverID {
+				// Team lead rejection
+				return l.RejectByTeamLead(requestID, approverID, comments)
+			}
+		}
+
+	case StatusTeamLeadApproved:
+		if action == "approve" {
+			// Check if user has HR permission
+			userModel := NewUserModel(l.db)
+			hasHRPermission, err := userModel.HasUserPermission(approverID, "APPROVE_LEAVE_HR")
+			if err != nil {
+				return err
+			}
+
+			if hasHRPermission {
+				// Check if management approval is required (> 4 days)
+				if request.DaysRequested > 4 {
+					// HR approval, but management approval still needed
+					return l.ApproveByHR(requestID, comments)
+				} else {
+					// HR approval is final
+					return l.ApproveByHR(requestID, comments)
+				}
+			}
+		} else if action == "reject" {
+			// Check if user has HR permission
+			userModel := NewUserModel(l.db)
+			hasHRPermission, err := userModel.HasUserPermission(approverID, "APPROVE_LEAVE_HR")
+			if err != nil {
+				return err
+			}
+
+			if hasHRPermission {
+				return l.RejectByHR(requestID, comments)
+			}
+		}
+
+	case StatusHRApproved:
+		if action == "approve" {
+			// Check if user has management permission
+			userModel := NewUserModel(l.db)
+			hasManagementPermission, err := userModel.HasUserPermission(approverID, "APPROVE_LEAVE_MANAGEMENT")
+			if err != nil {
+				return err
+			}
+
+			if hasManagementPermission {
+				// Management approval - final approval
+				return l.ApproveByManagement(requestID, comments)
+			}
+		} else if action == "reject" {
+			// Check if user has management permission
+			userModel := NewUserModel(l.db)
+			hasManagementPermission, err := userModel.HasUserPermission(approverID, "APPROVE_LEAVE_MANAGEMENT")
+			if err != nil {
+				return err
+			}
+
+			if hasManagementPermission {
+				return l.RejectByManagement(requestID, comments)
+			}
+		}
+	}
+
+	return fmt.Errorf("invalid action or insufficient permissions")
+}
+
+// GetLeaveRequestWorkflowStatus returns the current workflow status and next approver
+func (l *LeaveRequestModel) GetLeaveRequestWorkflowStatus(requestID uint) (map[string]interface{}, error) {
+	request, err := l.GetLeaveRequest(requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	status := map[string]interface{}{
+		"current_status":      request.Status,
+		"next_approver":       nil,
+		"is_final":            false,
+		"requires_management": false,
+	}
+
+	switch request.Status {
+	case StatusPending:
+		if request.TeamLeadID != nil {
+			status["next_approver"] = "team_lead"
+		} else {
+			status["next_approver"] = "hr"
+		}
+
+	case StatusTeamLeadApproved:
+		status["next_approver"] = "hr"
+		if request.DaysRequested > 4 {
+			status["requires_management"] = true
+		}
+
+	case StatusHRApproved:
+		if request.DaysRequested > 4 {
+			status["next_approver"] = "management"
+		} else {
+			status["is_final"] = true
+		}
+
+	case StatusManagementApproved:
+		status["is_final"] = true
+
+	case StatusApproved:
+		status["is_final"] = true
+
+	case StatusRejected, StatusCancelled:
+		status["is_final"] = true
+	}
+
+	return status, nil
+}
+
+// GetLeaveRequestTimeline returns the approval timeline for a leave request
+func (l *LeaveRequestModel) GetLeaveRequestTimeline(requestID uint) ([]map[string]interface{}, error) {
+	request, err := l.GetLeaveRequest(requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	timeline := []map[string]interface{}{}
+
+	// Request submitted
+	timeline = append(timeline, map[string]interface{}{
+		"action":    "submitted",
+		"timestamp": request.CreatedAt,
+		"user_id":   request.UserID,
+		"user_name": request.User.FirstName + " " + request.User.LastName,
+		"comments":  "",
+	})
+
+	// Team lead approval/rejection
+	if request.TeamLeadApprovedAt != nil {
+		action := "approved"
+		if request.Status == StatusRejected {
+			action = "rejected"
+		}
+
+		timeline = append(timeline, map[string]interface{}{
+			"action":    action,
+			"timestamp": *request.TeamLeadApprovedAt,
+			"user_id":   *request.TeamLeadID,
+			"user_name": request.TeamLead.FirstName + " " + request.TeamLead.LastName,
+			"comments":  request.TeamLeadComments,
+			"level":     "team_lead",
+		})
+	}
+
+	// HR approval/rejection
+	if request.HRApprovedAt != nil {
+		action := "approved"
+		if request.Status == StatusRejected {
+			action = "rejected"
+		}
+
+		timeline = append(timeline, map[string]interface{}{
+			"action":    action,
+			"timestamp": *request.HRApprovedAt,
+			"user_id":   0, // HR user ID would need to be stored
+			"user_name": "HR",
+			"comments":  request.HRComments,
+			"level":     "hr",
+		})
+	}
+
+	// Management approval/rejection
+	if request.ManagementApprovedAt != nil {
+		action := "approved"
+		if request.Status == StatusRejected {
+			action = "rejected"
+		}
+
+		timeline = append(timeline, map[string]interface{}{
+			"action":    action,
+			"timestamp": *request.ManagementApprovedAt,
+			"user_id":   0, // Management user ID would need to be stored
+			"user_name": "Management",
+			"comments":  request.ManagementComments,
+			"level":     "management",
+		})
+	}
+
+	return timeline, nil
+}
+
+// GetLeaveRequestSummary returns a summary of leave requests for reporting
+func (l *LeaveRequestModel) GetLeaveRequestSummary(year int) (map[string]interface{}, error) {
+	startOfYear := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	endOfYear := time.Date(year, 12, 31, 23, 59, 59, 999999999, time.UTC)
+
+	summary := map[string]interface{}{
+		"year":           year,
+		"total_requests": 0,
+		"by_status":      make(map[string]int),
+		"by_type":        make(map[string]int),
+		"by_month":       make(map[int]int),
+	}
+
+	// Get all requests for the year
+	var requests []LeaveRequest
+	if err := l.db.Where("start_date >= ? AND start_date <= ?", startOfYear, endOfYear).
+		Preload("User").Preload("TeamLead").
+		Find(&requests).Error; err != nil {
+		return nil, err
+	}
+
+	summary["total_requests"] = len(requests)
+
+	// Count by status
+	statusCounts := make(map[string]int)
+	for _, request := range requests {
+		statusCounts[string(request.Status)]++
+	}
+	summary["by_status"] = statusCounts
+
+	// Count by type
+	typeCounts := make(map[string]int)
+	for _, request := range requests {
+		typeCounts[string(request.LeaveType)]++
+	}
+	summary["by_type"] = typeCounts
+
+	// Count by month
+	monthCounts := make(map[int]int)
+	for _, request := range requests {
+		month := int(request.StartDate.Month())
+		monthCounts[month]++
+	}
+	summary["by_month"] = monthCounts
+
+	return summary, nil
 }
