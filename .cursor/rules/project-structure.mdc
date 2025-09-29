@@ -1,0 +1,32 @@
+---
+alwaysApply: true
+---
+
+# XMUS CRM Project Structure Guide
+
+This is a full-stack CRM application with Go backend and React TypeScript frontend.
+
+## Project Architecture
+- **Backend**: Go with Gin framework, GORM ORM, PostgreSQL database
+- **Frontend**: React 19 with TypeScript, HeroUI components, Tailwind CSS
+- **Authentication**: JWT-based with role-based access control
+- **Database**: PostgreSQL with GORM migrations
+
+## Key Directories
+- `backend/` - Go API server with Gin framework
+  - `api/` - HTTP handlers and route definitions
+  - `model/` - GORM models and database operations
+  - `middleware/` - Authentication and request middleware
+  - `service/` - Business logic and utilities
+- `frontend/` - React TypeScript application
+  - `src/components/` - React components
+  - `src/services/` - API service layer
+  - `src/types/` - TypeScript type definitions
+  - `src/hooks/` - Custom React hooks
+  - `src/store/` - Redux Toolkit store
+  - `src/contexts/` - React contexts
+
+## Entry Points
+- Backend: [main.go](mdc:backend/main.go)
+- Frontend: [App.tsx](mdc:frontend/src/App.tsx)
+- API Documentation: [API_DOCUMENTATION.md](mdc:API_DOCUMENTATION.md)

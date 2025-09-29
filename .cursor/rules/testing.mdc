@@ -1,0 +1,90 @@
+---
+globs: *.test.ts,*.test.tsx,*.test.go,*_test.go
+---
+
+# Testing Guidelines
+
+## Backend Testing (Go)
+- Use Go's built-in testing package
+- Write unit tests for all business logic
+- Use table-driven tests for multiple scenarios
+- Mock external dependencies
+- Test error conditions and edge cases
+
+## Frontend Testing (React/TypeScript)
+- Use React Testing Library for component tests
+- Use Jest for unit testing
+- Test user interactions and behavior
+- Mock API calls and external dependencies
+- Test accessibility features
+
+## Test Structure
+- Follow AAA pattern (Arrange, Act, Assert)
+- Use descriptive test names
+- Keep tests focused and independent
+- Use proper setup and teardown
+- Test both success and failure scenarios
+
+## Example Go Test
+```go
+func TestUserModel_CreateUser(t *testing.T) {
+    tests := []struct {
+        name    string
+        user    *User
+        wantErr bool
+    }{
+        {
+            name: "valid user",
+            user: &User{
+                Email:     "test@example.com",
+                FirstName: "Test",
+                LastName:  "User",
+            },
+            wantErr: false,
+        },
+        {
+            name: "invalid email",
+            user: &User{
+                Email:     "invalid-email",
+                FirstName: "Test",
+                LastName:  "User",
+            },
+            wantErr: true,
+        },
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            // Test implementation
+        })
+    }
+}
+```
+
+## Example React Test
+```tsx
+import { render, screen, fireEvent } from '@testing-library/react';
+import { Component } from './Component';
+
+describe('Component', () => {
+  it('renders title correctly', () => {
+    render(<Component title="Test Title" onAction={jest.fn()} />);
+    expect(screen.getByText('Test Title')).toBeInTheDocument();
+  });
+  
+  it('calls onAction when button is clicked', () => {
+    const mockAction = jest.fn();
+    render(<Component title="Test" onAction={mockAction} />);
+    
+    fireEvent.click(screen.getByRole('button'));
+    expect(mockAction).toHaveBeenCalled();
+  });
+});
+```
+
+## Test Coverage
+- Aim for high test coverage (80%+)
+- Test critical business logic thoroughly
+- Test error handling paths
+- Test edge cases and boundary conditions
+- Use coverage reports to identify gaps

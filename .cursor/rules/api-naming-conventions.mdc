@@ -1,0 +1,132 @@
+---
+globs: *.go,*.ts,*.tsx
+---
+
+# API Naming Conventions & Data Formats
+
+## API Endpoint Naming
+- All API endpoints MUST use kebab-case
+- Use descriptive, plural nouns for resource names
+- Use HTTP verbs appropriately (GET, POST, PUT, DELETE)
+- Group related endpoints logically
+
+### Correct Examples:
+```
+GET    /api/v1/leave-requests
+POST   /api/v1/leave-requests
+GET    /api/v1/leave-requests/:id
+PUT    /api/v1/leave-requests/:id
+DELETE /api/v1/leave-requests/:id
+GET    /api/v1/leave-balances
+POST   /api/v1/leave-requests/:id/approve
+GET    /api/v1/user-profiles
+GET    /api/v1/team-members
+```
+
+### Incorrect Examples:
+```
+GET    /api/v1/leaveRequests     # camelCase
+GET    /api/v1/leave_requests    # snake_case
+GET    /api/v1/LeaveRequests     # PascalCase
+```
+
+## Date Format Standards
+- All dates in API requests and responses MUST use ISO 8601 format
+- Format: `2025-10-15T07:00:00+07:00` (with timezone)
+- Always include timezone information
+- Use UTC for internal storage, convert to user's timezone for display
+
+### Correct Date Examples:
+```json
+{
+  "created_at": "2025-01-15T10:30:00+07:00",
+  "start_date": "2025-02-01T00:00:00+07:00",
+  "end_date": "2025-02-05T23:59:59+07:00",
+  "updated_at": "2025-01-15T14:45:30+07:00"
+}
+```
+
+### Incorrect Date Examples:
+```json
+{
+  "created_at": "2025-01-15T10:30:00Z",           # Missing timezone
+  "start_date": "2025-02-01",                     # Missing time
+  "end_date": "2025-02-05 23:59:59",              # Wrong format
+  "updated_at": "2025-01-15T14:45:30.123Z"        # Milliseconds not needed
+}
+```
+
+## Backend Implementation
+```go
+// Correct endpoint definition
+router.GET("/api/v1/leave-requests", handler.GetLeaveRequests)
+router.POST("/api/v1/leave-requests", handler.CreateLeaveRequest)
+router.PUT("/api/v1/leave-requests/:id", handler.UpdateLeaveRequest)
+
+// Correct date handling
+type LeaveRequest struct {
+    ID        uint      `json:"id"`
+    StartDate time.Time `json:"start_date"`
+    EndDate   time.Time `json:"end_date"`
+    CreatedAt time.Time `json:"created_at"`
+}
+
+// Date formatting in responses
+func formatDate(t time.Time) string {
+    return t.Format("2006-01-02T15:04:05-07:00")
+}
+```
+
+## Frontend Implementation
+```typescript
+// Correct API service calls
+export const leaveRequestsApi = {
+  getLeaveRequests: () => api.get('/api/v1/leave-requests'),
+  createLeaveRequest: (data: CreateLeaveRequest) => 
+    api.post('/api/v1/leave-requests', data),
+  updateLeaveRequest: (id: string, data: UpdateLeaveRequest) => 
+    api.put(`/api/v1/leave-requests/${id}`, data),
+};
+
+// Correct date handling
+const formatDateForAPI = (date: Date): string => {
+  return date.toISOString().replace('Z', '+07:00');
+};
+
+const parseDateFromAPI = (dateString: string): Date => {
+  return new Date(dateString);
+};
+```
+
+## JSON Field Naming
+- Use snake_case for JSON field names in API requests/responses
+- Use camelCase for TypeScript interfaces (frontend)
+- Convert between formats in API layer
+
+### Example:
+```go
+// Backend struct (snake_case JSON)
+type CreateLeaveRequest struct {
+    StartDate    time.Time `json:"start_date" validate:"required"`
+    EndDate      time.Time `json:"end_date" validate:"required"`
+    LeaveType    string    `json:"leave_type" validate:"required"`
+    Reason       string    `json:"reason"`
+}
+```
+
+```typescript
+// Frontend interface (camelCase)
+interface CreateLeaveRequest {
+  startDate: string;
+  endDate: string;
+  leaveType: string;
+  reason?: string;
+}
+```
+
+## Validation Rules
+- Validate date formats on both frontend and backend
+- Ensure timezone information is preserved
+- Handle timezone conversions properly
+- Validate kebab-case endpoint patterns
+- Use consistent naming across all API endpoints

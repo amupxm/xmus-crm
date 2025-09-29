@@ -1,0 +1,69 @@
+---
+globs: *.go,*.ts,*.tsx
+---
+
+# Authentication & RBAC Rules
+
+## Backend Authentication
+- Use JWT tokens for authentication
+- Implement refresh token mechanism
+- Hash passwords with bcrypt (minimum cost 12)
+- Store tokens securely in database
+- Implement token expiration and refresh
+
+## Role-Based Access Control (RBAC)
+- Define roles in [backend/model/roles.go](mdc:backend/model/roles.go)
+- Define permissions in [backend/model/permission.go](mdc:backend/model/permission.go)
+- Use many-to-many relationships for user-roles and role-permissions
+- Implement permission checking middleware
+- Use role-based route protection
+
+## Frontend Authentication
+- Use React Context for authentication state
+- Implement protected routes with [ProtectedRoute](mdc:frontend/src/components/ProtectedRoute.tsx)
+- Store tokens securely (httpOnly cookies preferred)
+- Implement automatic token refresh
+- Handle authentication errors gracefully
+
+## Permission Checking
+- Check permissions on both frontend and backend
+- Use role-based UI rendering
+- Implement proper error handling for unauthorized access
+- Log security events
+
+## Security Best Practices
+- Never expose sensitive data in frontend
+- Validate all input data
+- Use HTTPS in production
+- Implement rate limiting
+- Log security events
+- Regular security audits
+
+## Example Permission Check
+```go
+func (u *UserModel) HasPermission(userID uint, permission string) (bool, error) {
+    permissions, err := u.GetUserPermissions(userID)
+    if err != nil {
+        return false, err
+    }
+    
+    for _, perm := range permissions {
+        if perm.Key == permission {
+            return true, nil
+        }
+    }
+    return false, nil
+}
+```
+
+## Example Frontend Permission Check
+```tsx
+const { user } = useUser();
+const hasPermission = user?.permissions?.includes('permission_key');
+
+return (
+  <div>
+    {hasPermission && <AdminPanel />}
+  </div>
+);
+```

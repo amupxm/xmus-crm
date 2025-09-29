@@ -1,0 +1,92 @@
+---
+globs: frontend/src/components/*.tsx
+---
+
+# UI Component Development Rules
+
+## Component Structure
+- Use functional components with TypeScript
+- Implement proper prop interfaces
+- Use React.FC type annotation
+- Follow single responsibility principle
+- Keep components focused and reusable
+
+## HeroUI Integration
+- Use HeroUI components from [@heroui/react](mdc:frontend/package.json)
+- Follow HeroUI design patterns
+- Use consistent component props
+- Implement proper loading and error states
+- Use HeroUI theming system
+
+## Styling Guidelines
+- Use Tailwind CSS for styling
+- Follow the design system in [theme.ts](mdc:frontend/src/config/theme.ts)
+- Use clsx for conditional classes
+- Implement responsive design
+- Use consistent spacing and typography
+
+## Component Patterns
+- Use custom hooks for reusable logic
+- Implement proper error boundaries
+- Use loading states for async operations
+- Implement proper accessibility features
+- Use TypeScript for type safety
+
+## State Management
+- Use local state for component-specific state
+- Use Redux for global state
+- Use React Query for server state
+- Implement proper state updates
+- Use useCallback and useMemo for optimization
+
+## Example Component
+```tsx
+import React, { useState, useCallback } from 'react';
+import { Button, Card, CardBody } from '@heroui/react';
+import clsx from 'clsx';
+
+interface ComponentProps {
+  title: string;
+  onAction: (id: string) => void;
+  isLoading?: boolean;
+}
+
+export const Component: React.FC<ComponentProps> = ({ 
+  title, 
+  onAction, 
+  isLoading = false 
+}) => {
+  const [selectedId, setSelectedId] = useState<string>('');
+  
+  const handleAction = useCallback(() => {
+    if (selectedId) {
+      onAction(selectedId);
+    }
+  }, [selectedId, onAction]);
+  
+  return (
+    <Card className="p-4">
+      <CardBody>
+        <h2 className="text-xl font-bold mb-4">{title}</h2>
+        <Button 
+          onPress={handleAction}
+          isLoading={isLoading}
+          className={clsx(
+            "w-full",
+            selectedId ? "bg-primary" : "bg-default"
+          )}
+        >
+          Action
+        </Button>
+      </CardBody>
+    </Card>
+  );
+};
+```
+
+## Accessibility
+- Use proper ARIA labels
+- Implement keyboard navigation
+- Use semantic HTML elements
+- Ensure proper color contrast
+- Test with screen readers

@@ -1,0 +1,78 @@
+---
+globs: *.go,*.ts,*.tsx
+---
+
+# API Development Patterns
+
+## Backend API Structure
+- All API routes are prefixed with `/api/v1`
+- Use proper HTTP methods (GET, POST, PUT, DELETE)
+- Implement consistent response format
+- Use middleware for authentication and validation
+
+## Response Format
+All API responses should follow this structure:
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": { ... },
+  "meta": {
+    "total": 100,
+    "page": 1,
+    "limit": 10
+  }
+}
+```
+
+## Error Response Format
+```json
+{
+  "success": false,
+  "message": "Error description",
+  "errors": ["Detailed error 1", "Detailed error 2"]
+}
+```
+
+## Authentication
+- Use JWT tokens for authentication
+- Include `Authorization: Bearer <token>` header
+- Implement refresh token mechanism
+- Use middleware for protected routes
+
+## Validation
+- Use Go validator for request validation
+- Implement proper error messages
+- Validate all input data
+- Use appropriate validation tags
+
+## Frontend API Integration
+- Use centralized API service in [src/services/](mdc:frontend/src/services/)
+- Implement proper error handling
+- Use TypeScript interfaces for request/response types
+- Handle loading states consistently
+
+## Example API Handler
+```go
+func (h *Handler) GetItems(c *gin.Context) {
+    items, err := h.model.GetItems()
+    if err != nil {
+        c.JSON(500, gin.H{"success": false, "message": err.Error()})
+        return
+    }
+    
+    c.JSON(200, gin.H{
+        "success": true,
+        "message": "Items retrieved successfully",
+        "data": items,
+    })
+}
+```
+
+## Example Frontend API Call
+```typescript
+export const getItems = async (): Promise<Item[]> => {
+  const response = await api.get<ApiResponse<Item[]>>('/items');
+  return response.data.data;
+};
+```

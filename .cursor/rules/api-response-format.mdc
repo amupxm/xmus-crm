@@ -1,0 +1,199 @@
+---
+globs: *.go,*.ts,*.tsx
+---
+
+# API Response Format Standards
+
+## Standard Response Structure
+All API responses must follow this consistent format:
+
+### Success Response Format:
+```json
+{
+  "success": true,
+  "message": "Operation completed successfully",
+  "data": { ... },
+  "meta": {
+    "total": 100,
+    "page": 1,
+    "limit": 10,
+    "has_next": true,
+    "has_prev": false
+  }
+}
+```
+
+### Error Response Format:
+```json
+{
+  "success": false,
+  "message": "Error description",
+  "errors": [
+    "Detailed error message 1",
+    "Detailed error message 2"
+  ]
+}
+```
+
+## HTTP Status Codes
+- 200: Success (GET, PUT, PATCH)
+- 201: Created (POST)
+- 204: No Content (DELETE)
+- 400: Bad Request (validation errors)
+- 401: Unauthorized (authentication required)
+- 403: Forbidden (insufficient permissions)
+- 404: Not Found
+- 409: Conflict (duplicate resource)
+- 422: Unprocessable Entity (validation failed)
+- 500: Internal Server Error
+
+## Backend Implementation
+```go
+// Success response helper
+func SuccessResponse(c *gin.Context, data interface{}, message string) {
+    c.JSON(200, gin.H{
+        "success": true,
+        "message": message,
+        "data":    data,
+    })
+}
+
+// Error response helper
+func ErrorResponse(c *gin.Context, statusCode int, message string, errors []string) {
+    c.JSON(statusCode, gin.H{
+        "success": false,
+        "message": message,
+        "errors":  errors,
+    })
+}
+
+// Paginated response helper
+func PaginatedResponse(c *gin.Context, data interface{}, total, page, limit int) {
+    c.JSON(200, gin.H{
+        "success": true,
+        "message": "Data retrieved successfully",
+        "data":    data,
+        "meta": gin.H{
+            "total":     total,
+            "page":      page,
+            "limit":     limit,
+            "has_next":  page*limit < total,
+            "has_prev":  page > 1,
+        },
+    })
+}
+```
+
+## Frontend Response Handling
+```typescript
+// API response types
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data?: T;
+  meta?: {
+    total: number;
+    page: number;
+    limit: number;
+    has_next: boolean;
+    has_prev: boolean;
+  };
+}
+
+interface ApiErrorResponse {
+  success: false;
+  message: string;
+  errors?: string[];
+}
+
+// Response handling utility
+export const handleApiResponse = <T>(
+  response: ApiResponse<T>
+): T => {
+  if (!response.success) {
+    throw new Error(response.message);
+  }
+  return response.data!;
+};
+
+// Error handling utility
+export const handleApiError = (error: any): string => {
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+  return 'An unexpected error occurred';
+};
+```
+
+## Date Format in Responses
+All dates in API responses must use ISO 8601 format with timezone:
+- Format: `2025-10-15T07:00:00+07:00`
+- Always include timezone information
+- Use consistent format across all endpoints
+
+### Example with dates:
+```json
+{
+  "success": true,
+  "message": "Leave request created successfully",
+  "data": {
+    "id": 1,
+    "user_id": 123,
+    "start_date": "2025-10-15T07:00:00+07:00",
+    "end_date": "2025-10-20T18:00:00+07:00",
+    "created_at": "2025-01-15T10:30:00+07:00",
+    "updated_at": "2025-01-15T10:30:00+07:00"
+  }
+}
+```
+
+## Validation Error Format
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": [
+    "start_date is required",
+    "end_date must be after start_date",
+    "leave_type must be one of: annual, sick, personal"
+  ]
+}
+```
+
+## List Response Format
+```json
+{
+  "success": true,
+  "message": "Leave requests retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "user_id": 123,
+      "start_date": "2025-10-15T07:00:00+07:00",
+      "end_date": "2025-10-20T18:00:00+07:00",
+      "status": "pending"
+    }
+  ],
+  "meta": {
+    "total": 25,
+    "page": 1,
+    "limit": 10,
+    "has_next": true,
+    "has_prev": false
+  }
+}
+```
+
+## Consistent Field Naming
+- Use snake_case for all JSON field names
+- Use descriptive, clear field names
+- Be consistent across all endpoints
+- Use plural nouns for list endpoints
+- Use singular nouns for detail endpoints
+
+## Error Message Guidelines
+- Use clear, user-friendly error messages
+- Provide specific validation error details
+- Include field names in validation errors
+- Use consistent error message format
+- Avoid exposing internal system details

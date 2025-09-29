@@ -1,0 +1,97 @@
+---
+globs: *.go,*.ts,*.tsx
+---
+
+# Error Handling Rules
+
+## Backend Error Handling
+- Use structured logging with the custom logger
+- Return appropriate HTTP status codes
+- Provide meaningful error messages
+- Log errors with context information
+- Use proper error wrapping
+
+## HTTP Status Codes
+- 200: Success
+- 201: Created
+- 400: Bad Request (validation errors)
+- 401: Unauthorized (authentication required)
+- 403: Forbidden (insufficient permissions)
+- 404: Not Found
+- 409: Conflict (duplicate resource)
+- 422: Unprocessable Entity (validation failed)
+- 500: Internal Server Error
+
+## Error Response Format
+```json
+{
+  "success": false,
+  "message": "Error description",
+  "errors": ["Detailed error 1", "Detailed error 2"]
+}
+```
+
+## Frontend Error Handling
+- Use try-catch blocks for async operations
+- Display user-friendly error messages
+- Implement proper error boundaries
+- Log errors to console for debugging
+- Use toast notifications for user feedback
+
+## Example Backend Error Handling
+```go
+func (h *Handler) CreateItem(c *gin.Context) {
+    var req CreateRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(400, gin.H{
+            "success": false,
+            "message": "Invalid request data",
+            "errors": []string{err.Error()},
+        })
+        return
+    }
+    
+    item, err := h.model.Create(&req)
+    if err != nil {
+        h.logger.Error().Err(err).Msg("Failed to create item")
+        c.JSON(500, gin.H{
+            "success": false,
+            "message": "Failed to create item",
+        })
+        return
+    }
+    
+    c.JSON(201, gin.H{
+        "success": true,
+        "message": "Item created successfully",
+        "data": item,
+    })
+}
+```
+
+## Example Frontend Error Handling
+```tsx
+const [error, setError] = useState<string | null>(null);
+const [loading, setLoading] = useState(false);
+
+const handleSubmit = async (data: FormData) => {
+  try {
+    setLoading(true);
+    setError(null);
+    await api.createItem(data);
+    // Success handling
+  } catch (err) {
+    setError('Failed to create item. Please try again.');
+    console.error('Error creating item:', err);
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+## Logging Guidelines
+- Use structured logging with context
+- Log at appropriate levels (Error, Warn, Info, Debug)
+- Include relevant context in log messages
+- Don't log sensitive information
+- Use consistent log format

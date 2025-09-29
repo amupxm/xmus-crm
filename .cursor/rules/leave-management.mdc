@@ -1,0 +1,61 @@
+---
+description: Leave management system specific rules
+---
+
+# Leave Management System Rules
+
+## Leave Request Workflow
+- Leave requests go through approval workflow
+- Statuses: PENDING, APPROVED, REJECTED, CANCELLED
+- Different approval levels based on leave type and duration
+- Automatic notifications for status changes
+
+## Leave Balance Management
+- Annual leave balances reset each year
+- Different leave types: Annual, Sick, Personal, etc.
+- Balance calculations consider approved requests
+- Admin can manually adjust balances
+
+## Key Components
+- [LeaveRequestForm](mdc:frontend/src/components/LeaveRequestForm.tsx) - Create new requests
+- [LeaveHistoryTable](mdc:frontend/src/components/LeaveHistoryTable.tsx) - View request history
+- [LeaveCalendar](mdc:frontend/src/components/LeaveCalendar.tsx) - Calendar view
+- [ApprovalDashboard](mdc:frontend/src/components/ApprovalDashboard.tsx) - Manager approvals
+- [AdminLeaveBalances](mdc:frontend/src/components/AdminLeaveBalances.tsx) - Admin balance management
+
+## Backend API Endpoints
+- `POST /api/v1/leave-requests` - Create leave request
+- `GET /api/v1/leave-requests` - Get user's requests
+- `PUT /api/v1/leave-requests/:id` - Update request
+- `DELETE /api/v1/leave-requests/:id` - Cancel request
+- `GET /api/v1/leave-requests/balance` - Get leave balance
+- `POST /api/v1/leave-requests/:id/approve` - Approve request
+- `POST /api/v1/leave-requests/:id/reject` - Reject request
+
+## Data Models
+- [LeaveRequest](mdc:backend/model/leave_request.go) - Main request model
+- [LeaveBalance](mdc:backend/model/leave_balance.go) - User leave balances
+- [LeavePolicy](mdc:backend/model/leave_policy.go) - Leave policies and rules
+- [LeaveCalendarEntry](mdc:backend/model/leave_calendar.go) - Calendar entries
+
+## Business Rules
+- Leave requests must be submitted in advance
+- Minimum notice period based on leave type
+- Maximum consecutive leave days
+- Blackout periods for certain dates
+- Manager approval required for certain leave types
+- Balance validation before approval
+
+## Frontend State Management
+- Use Redux for leave request state
+- Implement optimistic updates
+- Handle loading and error states
+- Real-time updates for approvals
+- Cache leave balance data
+
+## Validation Rules
+- Validate leave dates (not in past, not on weekends)
+- Check leave balance availability
+- Validate leave type and duration
+- Check for overlapping requests
+- Validate approval workflow

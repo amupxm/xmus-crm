@@ -1,0 +1,79 @@
+---
+globs: *.tsx,*.ts
+---
+
+# React Frontend Development Rules
+
+## Code Style & Conventions
+- Use TypeScript for all components and functions
+- Use functional components with hooks
+- Use PascalCase for component names
+- Use camelCase for variables and functions
+- Use meaningful and descriptive names
+- Add proper TypeScript types for all props and state
+
+## Project Structure
+- Components go in [src/components/](mdc:frontend/src/components/) directory
+- Services go in [src/services/](mdc:frontend/src/services/) directory
+- Types go in [src/types/](mdc:frontend/src/types/) directory
+- Hooks go in [src/hooks/](mdc:frontend/src/hooks/) directory
+- Store slices go in [src/store/slices/](mdc:frontend/src/store/slices/) directory
+
+## Component Development
+- Use functional components with React.FC type
+- Use proper TypeScript interfaces for props
+- Implement proper error handling and loading states
+- Use custom hooks for reusable logic
+- Follow single responsibility principle
+
+## State Management
+- Use Redux Toolkit for global state management
+- Use local state for component-specific state
+- Use React Query for server state management
+- Implement proper loading and error states
+
+## Styling
+- Use Tailwind CSS for styling
+- Use HeroUI components for UI elements
+- Follow the design system defined in [theme.ts](mdc:frontend/src/config/theme.ts)
+- Use clsx for conditional class names
+- Implement responsive design
+
+## API Integration
+- Use the centralized API service in [src/services/](mdc:frontend/src/services/)
+- Implement proper error handling for API calls
+- Use TypeScript interfaces for API responses
+- Handle loading states properly
+
+## Component Example
+```tsx
+interface ComponentProps {
+  title: string;
+  onAction: () => void;
+}
+
+export const Component: React.FC<ComponentProps> = ({ title, onAction }) => {
+  const [loading, setLoading] = useState(false);
+  
+  return (
+    <div className="p-4">
+      <h1 className="text-xl font-bold">{title}</h1>
+      <Button onPress={onAction} isLoading={loading}>
+        Action
+      </Button>
+    </div>
+  );
+};
+```
+
+## Custom Hooks
+- Create custom hooks for reusable logic
+- Use proper TypeScript return types
+- Handle loading and error states
+- Follow the pattern in [src/hooks/](mdc:frontend/src/hooks/)
+
+## Error Handling
+- Use try-catch blocks for async operations
+- Display user-friendly error messages
+- Log errors to console for debugging
+- Implement proper fallback UI
