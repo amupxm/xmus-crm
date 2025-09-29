@@ -34,6 +34,7 @@ export const Leaves: React.FC = () => {
       
       setLeaveBalance(balanceData);
       setLeaveRequests(requestsData);
+      console.log(requestsData);
     } catch (err) {
       setError('Failed to load leave data');
       console.error('Error loading leave data:', err);

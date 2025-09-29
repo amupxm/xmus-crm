@@ -165,6 +165,9 @@ curl -X POST http://localhost:8080/api/v1/auth/logout \
 curl -X GET http://localhost:8080/api/v1/protected/profile \
   -H "Authorization: Bearer your_access_token_here"
 ```
+## API response request rules  : 
+- API must always response and get request in kebab-case format like first_name
+- API must always response and get requests with date format like 2025-10-15T07:00:00+07:00
 
 ## Security Features
 
@@ -175,3 +178,4 @@ curl -X GET http://localhost:8080/api/v1/protected/profile \
 - User account status checking
 - Input validation and sanitization
 - Secure error handling (no sensitive data exposure)
+
