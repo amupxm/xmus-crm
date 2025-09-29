@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/amupxm/xmus-crm/backend/api"
 	"github.com/amupxm/xmus-crm/backend/middleware"
 	"github.com/amupxm/xmus-crm/backend/model"
@@ -28,6 +30,9 @@ func main() {
 		db.Exec("DROP TABLE IF EXISTS permissions CASCADE")
 		db.Exec("DROP TABLE IF EXISTS countries CASCADE")
 		db.Exec("DROP TABLE IF EXISTS teams CASCADE")
+		db.Exec("DROP TABLE IF EXISTS leave_calendar_entries CASCADE")
+		db.Exec("DROP TABLE IF EXISTS leave_balances CASCADE")
+		db.Exec("DROP TABLE IF EXISTS leave_policies CASCADE")
 		db.Exec("DROP TABLE IF EXISTS leave_requests CASCADE")
 	}
 
@@ -40,6 +45,9 @@ func main() {
 		&model.Team{},
 		&model.TeamMember{},
 		&model.LeaveRequest{},
+		&model.LeaveBalance{},
+		&model.LeaveCalendarEntry{},
+		&model.LeavePolicy{},
 	); err != nil {
 		log.Error().Err(err).Msg("failed to migrate database")
 	}
@@ -52,6 +60,14 @@ func main() {
 			log.Error().Err(err).Msg("failed to run migration")
 		} else {
 			log.Info().Msg("Database migration completed successfully")
+		}
+
+		// Initialize leave policies for current year
+		leavePolicyModel := model.NewLeavePolicyModel(db)
+		if err := leavePolicyModel.InitializeDefaultPolicies(time.Now().Year()); err != nil {
+			log.Error().Err(err).Msg("failed to initialize leave policies")
+		} else {
+			log.Info().Msg("Leave policies initialized successfully")
 		}
 	}
 
@@ -80,6 +96,61 @@ func main() {
 	// Initialize Teams API
 	teamsAPI := api.NewTeamAPI(db)
 	teamsAPI.SetupRoutes(apiGroup)
+
+	// Initialize Leave Request API
+	leaveRequestHandler := api.NewLeaveRequestHandler(db)
+	leaveRequestGroup := apiGroup.Group("/leave-requests")
+	leaveRequestGroup.Use(middleware.AuthMiddleware())
+	{
+		// Leave request management
+		leaveRequestGroup.POST("", leaveRequestHandler.CreateLeaveRequest)
+		leaveRequestGroup.GET("", leaveRequestHandler.GetLeaveRequests)
+		leaveRequestGroup.GET("/:id", leaveRequestHandler.GetLeaveRequest)
+		leaveRequestGroup.PUT("/:id", leaveRequestHandler.UpdateLeaveRequest)
+		leaveRequestGroup.DELETE("/:id", leaveRequestHandler.CancelLeaveRequest)
+
+		// Leave balance and statistics
+		leaveRequestGroup.GET("/balance", leaveRequestHandler.GetLeaveBalance)
+		leaveRequestGroup.GET("/stats", leaveRequestHandler.GetLeaveStats)
+		leaveRequestGroup.GET("/calendar/:year", leaveRequestHandler.GetLeaveCalendar)
+
+		// Approval workflow
+		leaveRequestGroup.GET("/pending", leaveRequestHandler.GetPendingApprovals)
+		leaveRequestGroup.POST("/:id/approve", leaveRequestHandler.ApproveLeaveRequest)
+		leaveRequestGroup.POST("/:id/reject", leaveRequestHandler.RejectLeaveRequest)
+
+		// Workflow status and timeline
+		leaveRequestGroup.GET("/:id/workflow", leaveRequestHandler.GetLeaveRequestWorkflowStatus)
+		leaveRequestGroup.GET("/:id/timeline", leaveRequestHandler.GetLeaveRequestTimeline)
+
+		// Reporting
+		leaveRequestGroup.GET("/summary", leaveRequestHandler.GetLeaveRequestSummary)
+	}
+
+	// Initialize Admin Leave Balance API (Admin/HR only)
+	leaveBalanceAdminHandler := api.NewLeaveBalanceAdminHandler(db)
+	adminLeaveBalanceGroup := apiGroup.Group("/admin/leave-balances")
+	adminLeaveBalanceGroup.Use(middleware.AuthMiddleware())
+	// TODO: Add role-based middleware to restrict to admin/HR only
+	{
+		// Get all users' leave balances
+		adminLeaveBalanceGroup.GET("", leaveBalanceAdminHandler.GetAllUsersLeaveBalances)
+
+		// Get specific user's leave balances
+		adminLeaveBalanceGroup.GET("/user/:user_id", leaveBalanceAdminHandler.GetUserLeaveBalances)
+
+		// Update specific leave balance for a user
+		adminLeaveBalanceGroup.PUT("/user/:user_id", leaveBalanceAdminHandler.UpdateUserLeaveBalance)
+
+		// Bulk update leave balances for a user
+		adminLeaveBalanceGroup.PUT("/user/:user_id/bulk", leaveBalanceAdminHandler.BulkUpdateUserLeaveBalances)
+
+		// Reset user's leave balances for new year
+		adminLeaveBalanceGroup.POST("/user/:user_id/reset", leaveBalanceAdminHandler.ResetUserLeaveBalances)
+
+		// Get leave balance statistics
+		adminLeaveBalanceGroup.GET("/stats", leaveBalanceAdminHandler.GetLeaveBalanceStats)
+	}
 
 	// Protected routes example
 	protected := apiGroup.Group("/protected")
