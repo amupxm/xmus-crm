@@ -8,14 +8,14 @@ import (
 
 // Team represents a team with members and a team lead
 type Team struct {
-	ID          uint   `gorm:"primaryKey"`
-	Name        string `gorm:"unique;not null"`
-	Description string
-	TeamLeadID  uint `gorm:"not null"` // Foreign key to User ID
-	IsActive    bool `gorm:"default:true"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	Name        string         `gorm:"unique;not null" json:"name"`
+	Description string         `json:"description"`
+	TeamLeadID  uint           `gorm:"not null" json:"team_lead_id"` // Foreign key to User ID
+	IsActive    bool           `gorm:"default:true" json:"is_active"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `json:"deleted_at,omitempty"`
 
 	// Relationships (commented out to avoid circular dependency)
 	// TeamLead   User   `gorm:"foreignKey:TeamLeadID"`
@@ -24,9 +24,9 @@ type Team struct {
 
 // TeamMember represents the many-to-many relationship between teams and users
 type TeamMember struct {
-	TeamID   uint      `gorm:"primaryKey"`
-	UserID   uint      `gorm:"primaryKey"`
-	JoinedAt time.Time `gorm:"default:CURRENT_TIMESTAMP"`
+	TeamID   uint      `gorm:"primaryKey" json:"team_id"`
+	UserID   uint      `gorm:"primaryKey" json:"user_id"`
+	JoinedAt time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"joined_at"`
 }
 
 // TeamModel handles team database operations

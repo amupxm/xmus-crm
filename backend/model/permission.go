@@ -8,12 +8,12 @@ import (
 
 // Permission represents a system permission
 type Permission struct {
-	Id          uint   `gorm:"primaryKey"`
-	Key         string `gorm:"unique;not null"`
-	Description string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt `gorm:"index"`
+	Id          uint           `gorm:"primaryKey" json:"id"`
+	Key         string         `gorm:"unique;not null" json:"key"`
+	Description string         `json:"description"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
 var permissions = map[uint]Permission{

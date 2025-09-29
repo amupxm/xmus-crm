@@ -8,28 +8,28 @@ import (
 )
 
 type User struct {
-	ID             uint   `gorm:"primaryKey"`
-	Email          string `gorm:"unique;not null"`
-	Password       string `gorm:"not null"`
-	FirstName      string `gorm:"not null"`
-	LastName       string `gorm:"not null"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	DeletedAt      gorm.DeletedAt
-	IsActiveUser   bool    `gorm:"default:true"`
-	Salary         float64 `gorm:"not null"`
-	SalaryCurrency string  `gorm:"not null"`
+	ID             uint           `gorm:"primaryKey" json:"id"`
+	Email          string         `gorm:"unique;not null" json:"email"`
+	Password       string         `gorm:"not null" json:"-"` // Never expose password in JSON
+	FirstName      string         `gorm:"not null" json:"first_name"`
+	LastName       string         `gorm:"not null" json:"last_name"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `json:"deleted_at,omitempty"`
+	IsActiveUser   bool           `gorm:"default:true" json:"is_active"`
+	Salary         float64        `gorm:"not null" json:"salary"`
+	SalaryCurrency string         `gorm:"not null" json:"salary_currency"`
 
 	// Role and Team relationships
-	Roles         []Role `gorm:"many2many:user_roles;"`
-	Teams         []Team `gorm:"many2many:team_members;"`
-	PrimaryRoleID uint   `gorm:"not null"` // Main role for the user
-	PrimaryTeamID uint   `gorm:"not null"` // Main team for the user
+	Roles         []Role `gorm:"many2many:user_roles;" json:"roles,omitempty"`
+	Teams         []Team `gorm:"many2many:team_members;" json:"teams,omitempty"`
+	PrimaryRoleID uint   `gorm:"not null" json:"primary_role_id"` // Main role for the user
+	PrimaryTeamID uint   `gorm:"not null" json:"primary_team_id"` // Main team for the user
 
 	// Authentication
-	LastLoginTime      *time.Time
-	RefreshToken       string
-	RefreshTokenExpiry *time.Time
+	LastLoginTime      *time.Time `json:"last_login,omitempty"`
+	RefreshToken       string     `json:"-"` // Never expose refresh token in JSON
+	RefreshTokenExpiry *time.Time `json:"-"` // Never expose refresh token expiry in JSON
 
 	// Relationships (commented out to avoid circular dependency)
 	// PrimaryRole Role `gorm:"foreignKey:PrimaryRoleID"`

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -49,31 +50,56 @@ type ApprovalRequest struct {
 	Comments string `json:"comments"`
 }
 
+// ErrorResponse represents a standard error response
+
 // CreateLeaveRequest creates a new leave request
 func (h *LeaveRequestHandler) CreateLeaveRequest(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
 	var req CreateLeaveRequestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid request data",
+			Errors:  []string{err.Error()},
+		})
 		return
 	}
 
-	// Parse date strings
-	startDate, err := time.Parse("2006-01-02", req.StartDate)
+	// Parse date strings (ISO 8601 format with timezone)
+	startDate, err := time.Parse("2006-01-02T15:04:05-07:00", req.StartDate)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid start_date format. Expected YYYY-MM-DD"})
-		return
+		// Try parsing without timezone as fallback
+		startDate, err = time.Parse("2006-01-02", req.StartDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Success: false,
+				Message: "Invalid start_date format. Expected YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS+07:00",
+				Errors:  []string{"start_date format is invalid"},
+			})
+			return
+		}
 	}
 
-	endDate, err := time.Parse("2006-01-02", req.EndDate)
+	endDate, err := time.Parse("2006-01-02T15:04:05-07:00", req.EndDate)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end_date format. Expected YYYY-MM-DD"})
-		return
+		// Try parsing without timezone as fallback
+		endDate, err = time.Parse("2006-01-02", req.EndDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Success: false,
+				Message: "Invalid end_date format. Expected YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS+07:00",
+				Errors:  []string{"end_date format is invalid"},
+			})
+			return
+		}
 	}
 
 	// Convert string to LeaveType
@@ -91,13 +117,21 @@ func (h *LeaveRequestHandler) CreateLeaveRequest(c *gin.Context) {
 
 	// Validate the request
 	if err := h.leaveRequestModel.ValidateLeaveRequest(leaveRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Validation failed",
+			Errors:  []string{err.Error()},
+		})
 		return
 	}
 
 	// Validate against leave policy
 	if err := h.leavePolicyModel.ValidateLeaveRequestAgainstPolicy(leaveRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Leave policy validation failed",
+			Errors:  []string{err.Error()},
+		})
 		return
 	}
 
@@ -106,34 +140,51 @@ func (h *LeaveRequestHandler) CreateLeaveRequest(c *gin.Context) {
 	if err != nil {
 		// Initialize balance if it doesn't exist
 		if err := h.leaveBalanceModel.InitializeUserLeaveBalances(userID.(uint), time.Now().Year()); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize leave balance"})
+			c.JSON(http.StatusInternalServerError, ErrorResponse{
+				Success: false,
+				Message: "Failed to initialize leave balance",
+			})
 			return
 		}
 		balance, err = h.leaveBalanceModel.GetUserLeaveBalanceByType(userID.(uint), time.Now().Year(), leaveType)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get leave balance"})
+			c.JSON(http.StatusInternalServerError, ErrorResponse{
+				Success: false,
+				Message: "Failed to get leave balance",
+			})
 			return
 		}
 	}
 
 	if balance.RemainingDays < leaveRequest.DaysRequested {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Insufficient leave balance"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Insufficient leave balance",
+			Errors:  []string{fmt.Sprintf("You have %d days remaining, but requested %d days", balance.RemainingDays, leaveRequest.DaysRequested)},
+		})
 		return
 	}
 
 	// Create the leave request
 	if err := h.leaveRequestModel.CreateLeaveRequest(leaveRequest); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create leave request"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to create leave request",
+		})
 		return
 	}
 
 	// Create calendar entries
 	if err := h.leaveCalendarModel.CreateCalendarEntriesForLeaveRequest(leaveRequest); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create calendar entries"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to create calendar entries",
+		})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
 		"message": "Leave request created successfully",
 		"data":    leaveRequest,
 	})
@@ -143,7 +194,10 @@ func (h *LeaveRequestHandler) CreateLeaveRequest(c *gin.Context) {
 func (h *LeaveRequestHandler) GetLeaveRequests(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
@@ -151,18 +205,26 @@ func (h *LeaveRequestHandler) GetLeaveRequests(c *gin.Context) {
 	yearStr := c.DefaultQuery("year", strconv.Itoa(time.Now().Year()))
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid year parameter"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid year parameter",
+		})
 		return
 	}
 
 	leaveRequests, err := h.leaveRequestModel.GetLeaveRequestsByYear(userID.(uint), year)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve leave requests"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to retrieve leave requests",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": leaveRequests,
+		"success": true,
+		"message": "Leave requests retrieved successfully",
+		"data":    leaveRequests,
 	})
 }
 
@@ -170,20 +232,29 @@ func (h *LeaveRequestHandler) GetLeaveRequests(c *gin.Context) {
 func (h *LeaveRequestHandler) GetLeaveRequest(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID parameter"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid ID parameter",
+		})
 		return
 	}
 
 	leaveRequest, err := h.leaveRequestModel.GetLeaveRequest(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Leave request not found"})
+		c.JSON(http.StatusNotFound, ErrorResponse{
+			Success: false,
+			Message: "Leave request not found",
+		})
 		return
 	}
 
@@ -193,13 +264,18 @@ func (h *LeaveRequestHandler) GetLeaveRequest(c *gin.Context) {
 		hasPermission := false
 		// Add permission checks here based on user roles
 		if !hasPermission {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+			c.JSON(http.StatusForbidden, ErrorResponse{
+				Success: false,
+				Message: "Access denied",
+			})
 			return
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": leaveRequest,
+		"success": true,
+		"message": "Leave request retrieved successfully",
+		"data":    leaveRequest,
 	})
 }
 
@@ -207,39 +283,58 @@ func (h *LeaveRequestHandler) GetLeaveRequest(c *gin.Context) {
 func (h *LeaveRequestHandler) UpdateLeaveRequest(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID parameter"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid ID parameter",
+		})
 		return
 	}
 
 	var req UpdateLeaveRequestRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid request data",
+			Errors:  []string{err.Error()},
+		})
 		return
 	}
 
 	// Get existing leave request
 	leaveRequest, err := h.leaveRequestModel.GetLeaveRequest(uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Leave request not found"})
+		c.JSON(http.StatusNotFound, ErrorResponse{
+			Success: false,
+			Message: "Leave request not found",
+		})
 		return
 	}
 
 	// Check if user can update this request
 	if leaveRequest.UserID != userID.(uint) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		c.JSON(http.StatusForbidden, ErrorResponse{
+			Success: false,
+			Message: "Access denied",
+		})
 		return
 	}
 
 	// Check if request can be updated (only pending requests)
 	if leaveRequest.Status != model.StatusPending {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Only pending requests can be updated"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Only pending requests can be updated",
+		})
 		return
 	}
 
@@ -250,7 +345,10 @@ func (h *LeaveRequestHandler) UpdateLeaveRequest(c *gin.Context) {
 	if req.StartDate != "" {
 		startDate, err := time.Parse("2006-01-02", req.StartDate)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid start_date format. Expected YYYY-MM-DD"})
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Success: false,
+				Message: "Invalid start_date format. Expected YYYY-MM-DD",
+			})
 			return
 		}
 		leaveRequest.StartDate = startDate
@@ -258,7 +356,10 @@ func (h *LeaveRequestHandler) UpdateLeaveRequest(c *gin.Context) {
 	if req.EndDate != "" {
 		endDate, err := time.Parse("2006-01-02", req.EndDate)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end_date format. Expected YYYY-MM-DD"})
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Success: false,
+				Message: "Invalid end_date format. Expected YYYY-MM-DD",
+			})
 			return
 		}
 		leaveRequest.EndDate = endDate
@@ -272,23 +373,34 @@ func (h *LeaveRequestHandler) UpdateLeaveRequest(c *gin.Context) {
 
 	// Validate the updated request
 	if err := h.leaveRequestModel.ValidateLeaveRequest(leaveRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid request data",
+			Errors:  []string{err.Error()},
+		})
 		return
 	}
 
 	// Update the request
 	if err := h.leaveRequestModel.UpdateLeaveRequest(leaveRequest); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update leave request"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to update leave request",
+		})
 		return
 	}
 
 	// Update calendar entries
 	if err := h.leaveCalendarModel.CreateCalendarEntriesForLeaveRequest(leaveRequest); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update calendar entries"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to update calendar entries",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "Leave request updated successfully",
 		"data":    leaveRequest,
 	})
@@ -298,30 +410,43 @@ func (h *LeaveRequestHandler) UpdateLeaveRequest(c *gin.Context) {
 func (h *LeaveRequestHandler) CancelLeaveRequest(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID parameter"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid ID parameter",
+		})
 		return
 	}
 
 	// Cancel the request
 	if err := h.leaveRequestModel.CancelLeaveRequest(uint(id), userID.(uint)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel leave request"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to cancel leave request",
+		})
 		return
 	}
 
 	// Update calendar entries status
 	if err := h.leaveCalendarModel.UpdateCalendarEntryStatus(uint(id), model.StatusCancelled); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update calendar entries"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to update calendar entries",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "Leave request cancelled successfully",
 	})
 }
@@ -384,18 +509,26 @@ func (h *LeaveRequestHandler) GetLeaveBalance(c *gin.Context) {
 func (h *LeaveRequestHandler) GetLeaveStats(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
 	stats, err := h.leaveRequestModel.GetLeaveRequestStats(userID.(uint))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve leave statistics"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to retrieve leave statistics",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": stats,
+		"success": true,
+		"message": "Leave statistics retrieved successfully",
+		"data":    stats,
 	})
 }
 
@@ -403,25 +536,36 @@ func (h *LeaveRequestHandler) GetLeaveStats(c *gin.Context) {
 func (h *LeaveRequestHandler) GetLeaveCalendar(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
 	yearStr := c.Param("year")
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid year parameter"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid year parameter",
+		})
 		return
 	}
 
 	entries, err := h.leaveCalendarModel.GetCalendarEntriesForYear(userID.(uint), year)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve leave calendar"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to retrieve leave calendar",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": entries,
+		"success": true,
+		"message": "Leave calendar retrieved successfully",
+		"data":    entries,
 	})
 }
 
@@ -429,7 +573,10 @@ func (h *LeaveRequestHandler) GetLeaveCalendar(c *gin.Context) {
 func (h *LeaveRequestHandler) GetPendingApprovals(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
@@ -446,17 +593,25 @@ func (h *LeaveRequestHandler) GetPendingApprovals(c *gin.Context) {
 	case "management":
 		requests, err = h.leaveRequestModel.GetPendingManagementApprovals()
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid approval type"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid approval type",
+		})
 		return
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve pending approvals"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to retrieve pending approvals",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": requests,
+		"success": true,
+		"message": "Pending approvals retrieved successfully",
+		"data":    requests,
 	})
 }
 
@@ -464,33 +619,50 @@ func (h *LeaveRequestHandler) GetPendingApprovals(c *gin.Context) {
 func (h *LeaveRequestHandler) ApproveLeaveRequest(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID parameter"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid ID parameter",
+		})
 		return
 	}
 
 	var req ApprovalRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid request data",
+			Errors:  []string{err.Error()},
+		})
 		return
 	}
 
 	// Process the approval
 	if err := h.leaveRequestModel.ProcessLeaveRequestWorkflow(uint(id), userID.(uint), "approve", req.Comments); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid request data",
+			Errors:  []string{err.Error()},
+		})
 		return
 	}
 
 	// Get updated request to check if it's fully approved
 	leaveRequest, err := h.leaveRequestModel.GetLeaveRequest(uint(id))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve updated request"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to retrieve updated request",
+		})
 		return
 	}
 
@@ -498,18 +670,25 @@ func (h *LeaveRequestHandler) ApproveLeaveRequest(c *gin.Context) {
 	if leaveRequest.Status == model.StatusApproved || leaveRequest.Status == model.StatusManagementApproved {
 		// Update leave balance
 		if err := h.leaveBalanceModel.IncrementUsedDays(leaveRequest.UserID, leaveRequest.StartDate.Year(), leaveRequest.LeaveType, leaveRequest.DaysRequested); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update leave balance"})
+			c.JSON(http.StatusInternalServerError, ErrorResponse{
+				Success: false,
+				Message: "Failed to update leave balance",
+			})
 			return
 		}
 
 		// Update calendar entries status
 		if err := h.leaveCalendarModel.UpdateCalendarEntryStatus(uint(id), leaveRequest.Status); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update calendar entries"})
+			c.JSON(http.StatusInternalServerError, ErrorResponse{
+				Success: false,
+				Message: "Failed to update calendar entries",
+			})
 			return
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "Leave request approved successfully",
 		"data":    leaveRequest,
 	})
@@ -519,36 +698,54 @@ func (h *LeaveRequestHandler) ApproveLeaveRequest(c *gin.Context) {
 func (h *LeaveRequestHandler) RejectLeaveRequest(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID parameter"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid ID parameter",
+		})
 		return
 	}
 
 	var req ApprovalRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid request data",
+			Errors:  []string{err.Error()},
+		})
 		return
 	}
 
 	// Process the rejection
 	if err := h.leaveRequestModel.ProcessLeaveRequestWorkflow(uint(id), userID.(uint), "reject", req.Comments); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid request data",
+			Errors:  []string{err.Error()},
+		})
 		return
 	}
 
 	// Update calendar entries status
 	if err := h.leaveCalendarModel.UpdateCalendarEntryStatus(uint(id), model.StatusRejected); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update calendar entries"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to update calendar entries",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"success": true,
 		"message": "Leave request rejected successfully",
 	})
 }
@@ -557,25 +754,36 @@ func (h *LeaveRequestHandler) RejectLeaveRequest(c *gin.Context) {
 func (h *LeaveRequestHandler) GetLeaveRequestWorkflowStatus(c *gin.Context) {
 	_, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID parameter"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid ID parameter",
+		})
 		return
 	}
 
 	status, err := h.leaveRequestModel.GetLeaveRequestWorkflowStatus(uint(id))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve workflow status"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to retrieve workflow status",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": status,
+		"success": true,
+		"message": "Workflow status retrieved successfully",
+		"data":    status,
 	})
 }
 
@@ -583,25 +791,36 @@ func (h *LeaveRequestHandler) GetLeaveRequestWorkflowStatus(c *gin.Context) {
 func (h *LeaveRequestHandler) GetLeaveRequestTimeline(c *gin.Context) {
 	_, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID parameter"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid ID parameter",
+		})
 		return
 	}
 
 	timeline, err := h.leaveRequestModel.GetLeaveRequestTimeline(uint(id))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve timeline"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to retrieve timeline",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": timeline,
+		"success": true,
+		"message": "Timeline retrieved successfully",
+		"data":    timeline,
 	})
 }
 
@@ -609,24 +828,35 @@ func (h *LeaveRequestHandler) GetLeaveRequestTimeline(c *gin.Context) {
 func (h *LeaveRequestHandler) GetLeaveRequestSummary(c *gin.Context) {
 	_, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
 		return
 	}
 
 	yearStr := c.DefaultQuery("year", strconv.Itoa(time.Now().Year()))
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid year parameter"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid year parameter",
+		})
 		return
 	}
 
 	summary, err := h.leaveRequestModel.GetLeaveRequestSummary(year)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve summary"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to retrieve summary",
+		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": summary,
+		"success": true,
+		"message": "Summary retrieved successfully",
+		"data":    summary,
 	})
 }

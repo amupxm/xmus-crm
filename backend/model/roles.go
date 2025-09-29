@@ -33,14 +33,14 @@ func (u *UintArray) Scan(value interface{}) error {
 
 // Role represents a user role with specific permissions
 type Role struct {
-	ID          uint   `gorm:"primaryKey"`
-	Name        string `gorm:"unique;not null"`
-	Description string
-	IsActive    bool      `gorm:"default:true"`
-	Permissions UintArray `gorm:"type:jsonb"` // Array of permission IDs
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	Name        string         `gorm:"unique;not null" json:"name"`
+	Description string         `json:"description"`
+	IsActive    bool           `gorm:"default:true" json:"is_active"`
+	Permissions UintArray      `gorm:"type:jsonb" json:"permissions"` // Array of permission IDs
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `json:"deleted_at,omitempty"`
 }
 
 // RoleModel handles role database operations

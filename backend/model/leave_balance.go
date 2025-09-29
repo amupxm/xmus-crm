@@ -8,20 +8,20 @@ import (
 
 // LeaveBalance represents a user's leave balance for a specific year and leave type
 type LeaveBalance struct {
-	ID             uint      `gorm:"primaryKey"`
-	UserID         uint      `gorm:"not null"`
-	LeaveType      LeaveType `gorm:"not null"`
-	Year           int       `gorm:"not null"`
-	TotalAllocated int       `gorm:"not null;default:0"` // Total days allocated for this leave type
-	UsedDays       int       `gorm:"not null;default:0"` // Days used this year
-	RemainingDays  int       `gorm:"not null;default:0"` // Remaining days (calculated)
-	CarryOverDays  int       `gorm:"not null;default:0"` // Days carried over from previous year
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	DeletedAt      gorm.DeletedAt
+	ID             uint           `gorm:"primaryKey" json:"id"`
+	UserID         uint           `gorm:"not null" json:"user_id"`
+	LeaveType      LeaveType      `gorm:"not null" json:"leave_type"`
+	Year           int            `gorm:"not null" json:"year"`
+	TotalAllocated int            `gorm:"not null;default:0" json:"total_allocated"` // Total days allocated for this leave type
+	UsedDays       int            `gorm:"not null;default:0" json:"used_days"`       // Days used this year
+	RemainingDays  int            `gorm:"not null;default:0" json:"remaining_days"`  // Remaining days (calculated)
+	CarryOverDays  int            `gorm:"not null;default:0" json:"carry_over_days"` // Days carried over from previous year
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `json:"deleted_at,omitempty"`
 
 	// Relationships
-	User User `gorm:"foreignKey:UserID"`
+	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
 // LeaveBalanceModel handles leave balance database operations

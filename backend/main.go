@@ -159,7 +159,10 @@ func main() {
 		protected.GET("/profile", func(c *service.GinContext) {
 			userID, exists := c.Get("user_id")
 			if !exists {
-				c.JSON(500, gin.H{"error": "User ID not found in context"})
+				c.JSON(500, gin.H{
+					"success": false,
+					"message": "User ID not found in context",
+				})
 				return
 			}
 			c.JSON(200, gin.H{

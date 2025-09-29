@@ -35,34 +35,34 @@ const (
 
 // LeaveRequest represents a leave request with approval workflow
 type LeaveRequest struct {
-	ID            uint               `gorm:"primaryKey"`
-	UserID        uint               `gorm:"not null"`
-	LeaveType     LeaveType          `gorm:"not null"`
-	StartDate     time.Time          `gorm:"not null"`
-	EndDate       time.Time          `gorm:"not null"`
-	DaysRequested int                `gorm:"not null"`
-	Reason        string             `gorm:"type:text"`
-	Status        LeaveRequestStatus `gorm:"default:'PENDING'"`
+	ID            uint               `gorm:"primaryKey" json:"id"`
+	UserID        uint               `gorm:"not null" json:"user_id"`
+	LeaveType     LeaveType          `gorm:"not null" json:"leave_type"`
+	StartDate     time.Time          `gorm:"not null" json:"start_date"`
+	EndDate       time.Time          `gorm:"not null" json:"end_date"`
+	DaysRequested int                `gorm:"not null" json:"days_requested"`
+	Reason        string             `gorm:"type:text" json:"reason"`
+	Status        LeaveRequestStatus `gorm:"default:'PENDING'" json:"status"`
 
 	// Approval workflow
-	TeamLeadID         *uint // Team lead who should approve
-	TeamLeadApprovedAt *time.Time
-	TeamLeadComments   string `gorm:"type:text"`
+	TeamLeadID         *uint      `json:"team_lead_id"` // Team lead who should approve
+	TeamLeadApprovedAt *time.Time `json:"team_lead_approved_at"`
+	TeamLeadComments   string     `gorm:"type:text" json:"team_lead_comments"`
 
-	HRApprovedAt *time.Time
-	HRComments   string `gorm:"type:text"`
+	HRApprovedAt *time.Time `json:"hr_approved_at"`
+	HRComments   string     `gorm:"type:text" json:"hr_comments"`
 
-	ManagementApprovedAt *time.Time
-	ManagementComments   string `gorm:"type:text"`
+	ManagementApprovedAt *time.Time `json:"management_approved_at"`
+	ManagementComments   string     `gorm:"type:text" json:"management_comments"`
 
 	// Metadata
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty"`
 
 	// Relationships
-	User     User  `gorm:"foreignKey:UserID"`
-	TeamLead *User `gorm:"foreignKey:TeamLeadID"`
+	User     User  `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	TeamLead *User `gorm:"foreignKey:TeamLeadID" json:"team_lead,omitempty"`
 }
 
 // LeaveRequestModel handles leave request database operations
