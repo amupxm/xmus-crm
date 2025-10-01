@@ -49,6 +49,16 @@ func (u *UserModel) CreateNewUser(user *User) error {
 	if err := u.db.Create(user).Error; err != nil {
 		return err
 	}
+
+	// Initialize leave balances for the new user
+	leaveBalanceModel := NewLeaveBalanceModel(u.db)
+	currentYear := time.Now().Year()
+	if err := leaveBalanceModel.InitializeUserLeaveBalances(user.ID, currentYear); err != nil {
+		// Log error but don't fail user creation
+		// TODO: Add proper logging here
+		return nil
+	}
+
 	return nil
 }
 

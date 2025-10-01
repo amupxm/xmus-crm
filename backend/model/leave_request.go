@@ -414,24 +414,31 @@ func (l *LeaveRequestModel) ProcessLeaveRequestWorkflow(requestID uint, approver
 		return err
 	}
 
+	userModel := NewUserModel(l.db)
+
 	// Determine the next step based on current status and action
 	switch request.Status {
 	case StatusPending:
 		if action == "approve" {
 			// Check if user is team lead
-			userModel := NewUserModel(l.db)
 			isTeamLead, err := userModel.IsUserTeamLead(approverID)
 			if err != nil {
 				return err
 			}
 
 			if isTeamLead && request.TeamLeadID != nil && *request.TeamLeadID == approverID {
-				// Team lead approval
-				return l.ApproveByTeamLead(requestID, approverID, comments)
+				// Team lead approval - check if HR approval is needed
+				if err := l.ApproveByTeamLead(requestID, approverID, comments); err != nil {
+					return err
+				}
+
+				// If duration > 4 days, HR approval is still needed
+				// If duration <= 4 days, check if HR approval is still needed based on user type
+				// For now, always require HR approval after team lead
+				return nil
 			}
 		} else if action == "reject" {
 			// Check if user is team lead
-			userModel := NewUserModel(l.db)
 			isTeamLead, err := userModel.IsUserTeamLead(approverID)
 			if err != nil {
 				return err
@@ -446,7 +453,6 @@ func (l *LeaveRequestModel) ProcessLeaveRequestWorkflow(requestID uint, approver
 	case StatusTeamLeadApproved:
 		if action == "approve" {
 			// Check if user has HR permission
-			userModel := NewUserModel(l.db)
 			hasHRPermission, err := userModel.HasUserPermission(approverID, "APPROVE_LEAVE_HR")
 			if err != nil {
 				return err
@@ -458,13 +464,18 @@ func (l *LeaveRequestModel) ProcessLeaveRequestWorkflow(requestID uint, approver
 					// HR approval, but management approval still needed
 					return l.ApproveByHR(requestID, comments)
 				} else {
-					// HR approval is final
-					return l.ApproveByHR(requestID, comments)
+					// HR approval is final - set to APPROVED
+					if err := l.ApproveByHR(requestID, comments); err != nil {
+						return err
+					}
+					// Set final status to APPROVED
+					return l.db.Model(&LeaveRequest{}).
+						Where("id = ?", requestID).
+						Update("status", StatusApproved).Error
 				}
 			}
 		} else if action == "reject" {
 			// Check if user has HR permission
-			userModel := NewUserModel(l.db)
 			hasHRPermission, err := userModel.HasUserPermission(approverID, "APPROVE_LEAVE_HR")
 			if err != nil {
 				return err
@@ -478,7 +489,6 @@ func (l *LeaveRequestModel) ProcessLeaveRequestWorkflow(requestID uint, approver
 	case StatusHRApproved:
 		if action == "approve" {
 			// Check if user has management permission
-			userModel := NewUserModel(l.db)
 			hasManagementPermission, err := userModel.HasUserPermission(approverID, "APPROVE_LEAVE_MANAGEMENT")
 			if err != nil {
 				return err
@@ -486,11 +496,16 @@ func (l *LeaveRequestModel) ProcessLeaveRequestWorkflow(requestID uint, approver
 
 			if hasManagementPermission {
 				// Management approval - final approval
-				return l.ApproveByManagement(requestID, comments)
+				if err := l.ApproveByManagement(requestID, comments); err != nil {
+					return err
+				}
+				// Set final status to APPROVED
+				return l.db.Model(&LeaveRequest{}).
+					Where("id = ?", requestID).
+					Update("status", StatusApproved).Error
 			}
 		} else if action == "reject" {
 			// Check if user has management permission
-			userModel := NewUserModel(l.db)
 			hasManagementPermission, err := userModel.HasUserPermission(approverID, "APPROVE_LEAVE_MANAGEMENT")
 			if err != nil {
 				return err
@@ -514,40 +529,82 @@ func (l *LeaveRequestModel) GetLeaveRequestWorkflowStatus(requestID uint) (map[s
 
 	status := map[string]interface{}{
 		"current_status":      request.Status,
+		"current_level":       "",
 		"next_approver":       nil,
+		"next_level":          "",
 		"is_final":            false,
-		"requires_management": false,
+		"requires_management": request.DaysRequested > 4,
+		"approval_flow":       []string{},
+		"completed_steps":     []string{},
+		"remaining_steps":     []string{},
 	}
 
+	// Determine approval flow based on duration and user type
+	approvalFlow := []string{"team_lead", "hr"}
+	if request.DaysRequested > 4 {
+		approvalFlow = append(approvalFlow, "management")
+	}
+	status["approval_flow"] = approvalFlow
+
+	// Determine current level and next steps
 	switch request.Status {
 	case StatusPending:
-		if request.TeamLeadID != nil {
-			status["next_approver"] = "team_lead"
-		} else {
-			status["next_approver"] = "hr"
-		}
+		status["current_level"] = "submitted"
+		status["next_approver"] = "team_lead"
+		status["next_level"] = "team_lead"
+		status["completed_steps"] = []string{"submitted"}
+		status["remaining_steps"] = approvalFlow
 
 	case StatusTeamLeadApproved:
+		status["current_level"] = "team_lead_approved"
 		status["next_approver"] = "hr"
+		status["next_level"] = "hr"
+		status["completed_steps"] = []string{"submitted", "team_lead"}
 		if request.DaysRequested > 4 {
-			status["requires_management"] = true
+			status["remaining_steps"] = []string{"hr", "management"}
+		} else {
+			status["remaining_steps"] = []string{"hr"}
 		}
 
 	case StatusHRApproved:
+		status["current_level"] = "hr_approved"
 		if request.DaysRequested > 4 {
 			status["next_approver"] = "management"
+			status["next_level"] = "management"
+			status["completed_steps"] = []string{"submitted", "team_lead", "hr"}
+			status["remaining_steps"] = []string{"management"}
 		} else {
 			status["is_final"] = true
+			status["completed_steps"] = []string{"submitted", "team_lead", "hr"}
+			status["remaining_steps"] = []string{}
 		}
 
 	case StatusManagementApproved:
+		status["current_level"] = "management_approved"
 		status["is_final"] = true
+		status["completed_steps"] = []string{"submitted", "team_lead", "hr", "management"}
+		status["remaining_steps"] = []string{}
 
 	case StatusApproved:
+		status["current_level"] = "approved"
 		status["is_final"] = true
+		status["completed_steps"] = []string{"submitted", "team_lead", "hr"}
+		if request.DaysRequested > 4 {
+			status["completed_steps"] = []string{"submitted", "team_lead", "hr", "management"}
+		}
+		status["remaining_steps"] = []string{}
 
-	case StatusRejected, StatusCancelled:
+	case StatusRejected:
+		status["current_level"] = "rejected"
 		status["is_final"] = true
+		status["completed_steps"] = []string{"submitted"}
+		status["remaining_steps"] = []string{}
+
+	case StatusCancelled:
+		status["current_level"] = "cancelled"
+		status["is_final"] = true
+		status["completed_steps"] = []string{"submitted"}
+		status["remaining_steps"] = []string{}
 	}
 
 	return status, nil
@@ -671,4 +728,77 @@ func (l *LeaveRequestModel) GetLeaveRequestSummary(year int) (map[string]interfa
 	summary["by_month"] = monthCounts
 
 	return summary, nil
+}
+
+// GetApprovalLevelInfo returns detailed approval level information for a leave request
+func (l *LeaveRequestModel) GetApprovalLevelInfo(requestID uint) (map[string]interface{}, error) {
+	request, err := l.GetLeaveRequest(requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get workflow status
+	workflowStatus, err := l.GetLeaveRequestWorkflowStatus(requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Define level information
+	levelInfo := map[string]interface{}{
+		"levels": map[string]interface{}{
+			"submitted": map[string]interface{}{
+				"name":        "Request Submitted",
+				"description": "Leave request has been submitted and is awaiting approval",
+				"icon":        "📝",
+				"color":       "blue",
+			},
+			"team_lead": map[string]interface{}{
+				"name":        "Team Lead Approval",
+				"description": "Awaiting approval from your team lead",
+				"icon":        "👥",
+				"color":       "yellow",
+			},
+			"hr": map[string]interface{}{
+				"name":        "HR Approval",
+				"description": "Awaiting approval from HR department",
+				"icon":        "👔",
+				"color":       "purple",
+			},
+			"management": map[string]interface{}{
+				"name":        "Management Approval",
+				"description": "Awaiting approval from management (required for leaves > 4 days)",
+				"icon":        "👨‍💼",
+				"color":       "orange",
+			},
+			"approved": map[string]interface{}{
+				"name":        "Approved",
+				"description": "Leave request has been fully approved",
+				"icon":        "✅",
+				"color":       "green",
+			},
+			"rejected": map[string]interface{}{
+				"name":        "Rejected",
+				"description": "Leave request has been rejected",
+				"icon":        "❌",
+				"color":       "red",
+			},
+			"cancelled": map[string]interface{}{
+				"name":        "Cancelled",
+				"description": "Leave request has been cancelled",
+				"icon":        "🚫",
+				"color":       "gray",
+			},
+		},
+		"workflow": workflowStatus,
+		"request_info": map[string]interface{}{
+			"id":                  request.ID,
+			"days_requested":      request.DaysRequested,
+			"leave_type":          request.LeaveType,
+			"start_date":          request.StartDate,
+			"end_date":            request.EndDate,
+			"requires_management": request.DaysRequested > 4,
+		},
+	}
+
+	return levelInfo, nil
 }

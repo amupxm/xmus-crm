@@ -24,6 +24,27 @@ type LeaveBalance struct {
 	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
+// TableName returns the table name for LeaveBalance
+func (LeaveBalance) TableName() string {
+	return "leave_balances"
+}
+
+// BeforeCreate adds unique constraint check before creating a leave balance
+func (lb *LeaveBalance) BeforeCreate(tx *gorm.DB) error {
+	// Check if a record already exists for this user, year, and leave type
+	var existing LeaveBalance
+	err := tx.Where("user_id = ? AND year = ? AND leave_type = ?", lb.UserID, lb.Year, lb.LeaveType).First(&existing).Error
+	if err == nil {
+		// Record already exists, update it instead of creating a new one
+		existing.TotalAllocated = lb.TotalAllocated
+		existing.UsedDays = lb.UsedDays
+		existing.CarryOverDays = lb.CarryOverDays
+		existing.RemainingDays = lb.TotalAllocated + lb.CarryOverDays - lb.UsedDays
+		return tx.Save(&existing).Error
+	}
+	return nil
+}
+
 // LeaveBalanceModel handles leave balance database operations
 type LeaveBalanceModel struct {
 	db *gorm.DB

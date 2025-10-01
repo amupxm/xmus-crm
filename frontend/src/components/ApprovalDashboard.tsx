@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { LEAVE_STATUSES, LEAVE_STATUS_COLORS, LEAVE_TYPES, LeaveRequest, leaveRequestsApi } from '../services/leaveRequestsApi';
+import { ApprovalLevelDisplay } from './ApprovalLevelDisplay';
 
 interface ApprovalDashboardProps {
   onRequestUpdated: (request: LeaveRequest) => void;
@@ -13,6 +14,7 @@ export const ApprovalDashboard: React.FC<ApprovalDashboardProps> = ({ onRequestU
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [approvalComments, setApprovalComments] = useState('');
   const [processing, setProcessing] = useState<number | null>(null);
+  const [showingApprovalLevels, setShowingApprovalLevels] = useState<number | null>(null);
 
   useEffect(() => {
     loadPendingRequests();
@@ -175,6 +177,12 @@ export const ApprovalDashboard: React.FC<ApprovalDashboardProps> = ({ onRequestU
                 <div className="flex items-center space-x-3">
                   {getStatusBadge(request.status)}
                   <button
+                    onClick={() => setShowingApprovalLevels(request.id)}
+                    className="text-purple-400 hover:text-purple-300 text-sm"
+                  >
+                    📊 Workflow
+                  </button>
+                  <button
                     onClick={() => setSelectedRequest(request)}
                     className="text-blue-400 hover:text-blue-300 text-sm"
                   >
@@ -321,6 +329,18 @@ export const ApprovalDashboard: React.FC<ApprovalDashboardProps> = ({ onRequestU
                 {processing === selectedRequest.id ? 'Processing...' : 'Approve'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Level Modal */}
+      {showingApprovalLevels && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <ApprovalLevelDisplay
+              requestId={showingApprovalLevels}
+              onClose={() => setShowingApprovalLevels(null)}
+            />
           </div>
         </div>
       )}

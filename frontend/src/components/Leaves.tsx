@@ -1,28 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { useUser } from '../hooks/useUser';
+import React, { useCallback, useEffect, useState } from 'react';
 import { LEAVE_STATUSES, LEAVE_STATUS_COLORS, LEAVE_TYPES, LeaveBalance, LeaveRequest, leaveRequestsApi } from '../services/leaveRequestsApi';
-import { AdminLeaveBalances } from './AdminLeaveBalances';
 import { ApprovalDashboard } from './ApprovalDashboard';
 import { LeaveBalanceCard } from './LeaveBalanceCard';
 import { LeaveCalendar } from './LeaveCalendar';
 import { LeaveHistoryTable } from './LeaveHistoryTable';
 import { LeaveRequestForm } from './LeaveRequestForm';
-import { RoleBasedAccess } from './RoleBasedAccess';
 
 export const Leaves: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'request' | 'history' | 'calendar' | 'approvals' | 'admin'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'request' | 'history' | 'calendar' | 'approvals'>('overview');
   const [leaveBalance, setLeaveBalance] = useState<LeaveBalance[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const { user } = useUser();
 
-  useEffect(() => {
-    loadData();
-  }, [currentYear]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -41,7 +33,11 @@ export const Leaves: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentYear]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleLeaveRequestCreated = (newRequest: LeaveRequest) => {
     setLeaveRequests(prev => [newRequest, ...prev]);
@@ -66,17 +62,12 @@ export const Leaves: React.FC = () => {
     loadData(); // Refresh balance
   };
 
-  const hasAdminAccess = user?.roles?.some(role => 
-    ['admin', 'hr'].includes(role.name.toLowerCase())
-  ) || false;
-
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📊' },
     { id: 'request', label: 'Request Leave', icon: '➕' },
     { id: 'history', label: 'My Requests', icon: '📋' },
     { id: 'calendar', label: 'Calendar', icon: '📅' },
     { id: 'approvals', label: 'Approvals', icon: '✅' },
-    ...(hasAdminAccess ? [{ id: 'admin', label: 'Admin', icon: '⚙️' }] : []),
   ];
 
   if (loading) {
@@ -223,11 +214,6 @@ export const Leaves: React.FC = () => {
           />
         )}
 
-        {activeTab === 'admin' && (
-          <RoleBasedAccess allowedRoles={['admin', 'hr']}>
-            <AdminLeaveBalances />
-          </RoleBasedAccess>
-        )}
       </div>
     </div>
   );

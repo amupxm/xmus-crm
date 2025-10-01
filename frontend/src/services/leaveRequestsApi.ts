@@ -83,9 +83,34 @@ export interface LeaveStats {
 
 export interface WorkflowStatus {
   current_status: string;
+  current_level: string;
   next_approver?: string;
+  next_level?: string;
   is_final: boolean;
   requires_management: boolean;
+  approval_flow: string[];
+  completed_steps: string[];
+  remaining_steps: string[];
+}
+
+export interface ApprovalLevelInfo {
+  levels: {
+    [key: string]: {
+      name: string;
+      description: string;
+      icon: string;
+      color: string;
+    };
+  };
+  workflow: WorkflowStatus;
+  request_info: {
+    id: number;
+    days_requested: number;
+    leave_type: string;
+    start_date: string;
+    end_date: string;
+    requires_management: boolean;
+  };
 }
 
 export interface TimelineEntry {
@@ -172,6 +197,11 @@ export const leaveRequestsApi = {
 
   getTimeline: async (id: number): Promise<TimelineEntry[]> => {
     const response = await apiClient.get(`/leave-requests/${id}/timeline`);
+    return response.data.data;
+  },
+
+  getApprovalLevelInfo: async (id: number): Promise<ApprovalLevelInfo> => {
+    const response = await apiClient.get(`/leave-requests/${id}/approval-levels`);
     return response.data.data;
   },
 

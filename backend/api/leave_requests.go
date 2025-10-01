@@ -860,3 +860,40 @@ func (h *LeaveRequestHandler) GetLeaveRequestSummary(c *gin.Context) {
 		"data":    summary,
 	})
 }
+
+// GetApprovalLevelInfo retrieves detailed approval level information for a leave request
+func (h *LeaveRequestHandler) GetApprovalLevelInfo(c *gin.Context) {
+	_, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Success: false,
+			Message: "User not authenticated",
+		})
+		return
+	}
+
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Success: false,
+			Message: "Invalid ID parameter",
+		})
+		return
+	}
+
+	levelInfo, err := h.leaveRequestModel.GetApprovalLevelInfo(uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Success: false,
+			Message: "Failed to retrieve approval level information",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Approval level information retrieved successfully",
+		"data":    levelInfo,
+	})
+}

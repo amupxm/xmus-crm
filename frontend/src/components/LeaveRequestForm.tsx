@@ -39,7 +39,16 @@ export const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({ onRequestCre
   };
 
   const getAvailableLeaveTypes = () => {
-    return leaveBalance.filter(balance => balance.remaining_days > 0);
+    // Filter balances with remaining days > 0 and deduplicate by leave_type
+    const availableBalances = leaveBalance.filter(balance => balance.remaining_days > 0);
+    const uniqueBalances = availableBalances.reduce((acc, balance) => {
+      const existing = acc.find(b => b.leave_type === balance.leave_type);
+      if (!existing) {
+        acc.push(balance);
+      }
+      return acc;
+    }, [] as LeaveBalance[]);
+    return uniqueBalances;
   };
 
   const getRemainingDays = (leaveType: string) => {

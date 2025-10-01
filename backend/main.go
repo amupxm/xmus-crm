@@ -122,6 +122,7 @@ func main() {
 		// Workflow status and timeline
 		leaveRequestGroup.GET("/:id/workflow", leaveRequestHandler.GetLeaveRequestWorkflowStatus)
 		leaveRequestGroup.GET("/:id/timeline", leaveRequestHandler.GetLeaveRequestTimeline)
+		leaveRequestGroup.GET("/:id/approval-levels", leaveRequestHandler.GetApprovalLevelInfo)
 
 		// Reporting
 		leaveRequestGroup.GET("/summary", leaveRequestHandler.GetLeaveRequestSummary)

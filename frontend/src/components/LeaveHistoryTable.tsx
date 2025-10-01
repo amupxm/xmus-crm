@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LEAVE_STATUSES, LEAVE_STATUS_COLORS, LEAVE_TYPES, LeaveRequest, leaveRequestsApi } from '../services/leaveRequestsApi';
+import { ApprovalLevelDisplay } from './ApprovalLevelDisplay';
 
 interface LeaveHistoryTableProps {
   requests: LeaveRequest[];
@@ -15,6 +16,7 @@ export const LeaveHistoryTable: React.FC<LeaveHistoryTableProps> = ({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingData, setEditingData] = useState<Partial<LeaveRequest>>({});
   const [loading, setLoading] = useState<number | null>(null);
+  const [showingApprovalLevels, setShowingApprovalLevels] = useState<number | null>(null);
 
   const canEdit = (request: LeaveRequest) => {
     return request.status === 'PENDING';
@@ -123,6 +125,9 @@ export const LeaveHistoryTable: React.FC<LeaveHistoryTableProps> = ({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Actions
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                Workflow
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
@@ -191,6 +196,15 @@ export const LeaveHistoryTable: React.FC<LeaveHistoryTableProps> = ({
                       </>
                     )}
                   </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <button
+                    onClick={() => setShowingApprovalLevels(request.id)}
+                    className="text-purple-400 hover:text-purple-300 flex items-center space-x-1"
+                  >
+                    <span>📊</span>
+                    <span>View Workflow</span>
+                  </button>
                 </td>
               </tr>
             ))}
@@ -274,6 +288,18 @@ export const LeaveHistoryTable: React.FC<LeaveHistoryTableProps> = ({
                 {loading === editingId ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Level Modal */}
+      {showingApprovalLevels && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <ApprovalLevelDisplay
+              requestId={showingApprovalLevels}
+              onClose={() => setShowingApprovalLevels(null)}
+            />
           </div>
         </div>
       )}
